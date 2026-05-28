@@ -295,7 +295,7 @@ function WorkoutPanel() {
               {ex.name}
               <span style={{ fontSize:11, color:"#555", fontWeight:400, marginLeft:8 }}>{ex.note}</span>
             </div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, paddingTop:6, paddingBottom:4 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, paddingTop:6, paddingBottom:4 }}>
               {Array.from({ length:ex.sets }).map((_,si) => {
                 const key = `${ei}-${si}`;
                 const done = checked[key];
