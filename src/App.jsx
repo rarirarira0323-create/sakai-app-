@@ -301,7 +301,7 @@ function WorkoutPanel() {
                 const done = checked[key];
                 return (
                   <div key={si} onClick={() => toggle(key)}
-                    style={{ background: done ? `${menu.color}33` : "#1A1A1A", border:`1px solid ${done ? menu.color : "#2A2A2A"}`, borderRadius:4, padding:"6px 10px", cursor:"pointer", fontSize:12, color: done ? menu.color : "#666", minWidth:44, textAlign:"center", transition:"all .15s" }}>
+                    style={{ background: done ? `${menu.color}33` : "#1A1A1A", border:`1px solid ${done ? menu.color : "#2A2A2A"}`, borderRadius:4, padding:"6px 6px", cursor:"pointer", fontSize:12, color: done ? menu.color : "#666", minWidth:44, textAlign:"center", transition:"all .15s" }}>
                     {done ? "✓" : `${si+1}set`}<br/>
                     <span style={{ fontSize:10 }}>{ex.reps}</span>
                   </div>
