@@ -102,7 +102,7 @@ const storageSet = (key, val) => {
 // ─── Styles ───────────────────────────────────────────────────
 const S = {
   app:   { background:"#0A0A0A", minHeight:"100vh", color:"#E8E8E0", fontFamily:"'Georgia', serif", padding:"12px 14px", maxWidth:480, margin:"0 auto" },
-  card:  { background:"#111", border:"1px solid #1A1A1A", borderRadius:6, padding:"14px", marginBottom:12 },
+  card:  { background:"#111", border:"1px solid #1A1A1A", borderRadius:6, padding:"14px", marginBottom:12, overflow:"hidden" },
   btn:   (active, color="#F5C842") => ({
     background: active ? color : "transparent",
     color: active ? "#0A0A0A" : "#666",
