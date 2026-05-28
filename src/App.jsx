@@ -89,20 +89,20 @@ const ASSET_ACCOUNTS = [
 const INIT_ASSETS = { nisa:0, defense:0, sbi_main:0, rakuten:0 };
 
 // ─── Storage helpers ──────────────────────────────────────────
-const storageGet = (key, fallback) => {
+const storageGet = async (key, fallback) => {
   try {
-    const r = localStorage.getItem(key);
-    return r ? JSON.parse(r) : fallback;
+    const r = await window.storage.get(key);
+    return r ? JSON.parse(r.value) : fallback;
   } catch { return fallback; }
 };
-const storageSet = (key, val) => {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+const storageSet = async (key, val) => {
+  try { await window.storage.set(key, JSON.stringify(val)); } catch {}
 };
 
 // ─── Styles ───────────────────────────────────────────────────
 const S = {
   app:   { background:"#0A0A0A", minHeight:"100vh", color:"#E8E8E0", fontFamily:"'Georgia', serif", padding:"12px 14px", maxWidth:480, margin:"0 auto" },
-  card:  { background:"#111", border:"1px solid #1A1A1A", borderRadius:6, padding:"14px", marginBottom:12, overflow:"hidden" },
+  card:  { background:"#111", border:"1px solid #1A1A1A", borderRadius:6, padding:"14px", marginBottom:12 },
   btn:   (active, color="#F5C842") => ({
     background: active ? color : "transparent",
     color: active ? "#0A0A0A" : "#666",
@@ -110,11 +110,11 @@ const S = {
     borderRadius:4, padding:"6px 12px", cursor:"pointer",
     fontSize:12, fontWeight: active ? 700 : 400, fontFamily:"inherit",
   }),
-  input: { background:"#111", border:"1px solid #2A2A2A", borderRadius:4, color:"#E8E8E0", padding:"8px 10px", fontSize:16, fontFamily:"inherit", width:"100%", boxSizing:"border-box" },
+  input: { background:"#111", border:"1px solid #2A2A2A", borderRadius:4, color:"#E8E8E0", padding:"8px 10px", fontSize:13, fontFamily:"inherit", width:"100%", boxSizing:"border-box" },
   tag:   (color) => ({ background:`${color}22`, color, border:`1px solid ${color}44`, borderRadius:3, padding:"2px 7px", fontSize:11 }),
 };
 
-// ─── Workout Menu ─────────────────────────────────────────────
+// ─── Workout Menu ────────────────────────────────────────────
 const WORKOUT = {
   chest: {
     label:"胸", icon:"💪", color:"#FF6B6B",
@@ -138,12 +138,12 @@ const WORKOUT = {
       {
         label:"Level 3", sub:"50〜60分 / やる気MAX", color:"#34D399",
         sets:[
-          { name:"PUバー 通常腕立て",       sets:5, reps:"20回", note:"ウォームアップ込み" },
-          { name:"PUバー ワイド",           sets:4, reps:"15回", note:"最大伸展で効果倍増" },
-          { name:"PUバー ナロー",           sets:4, reps:"12回", note:"肘を体に沿わせる" },
-          { name:"デクライン腕立て",        sets:3, reps:"12回", note:"下部〜外側を仕上げ" },
-          { name:"PUバー ディップス",       sets:3, reps:"12回", note:"体を前傾で大胸筋に集中" },
-          { name:"アーチャープッシュアップ", sets:3, reps:"8回",  note:"左右交互・片側強化" },
+          { name:"PUバー 通常腕立て",   sets:5, reps:"20回", note:"ウォームアップ込み" },
+          { name:"PUバー ワイド",       sets:4, reps:"15回", note:"最大伸展で効果倍増" },
+          { name:"PUバー ナロー",       sets:4, reps:"12回", note:"肘を体に沿わせる" },
+          { name:"デクライン腕立て",    sets:3, reps:"12回", note:"下部〜外側を仕上げ" },
+          { name:"PUバー ディップス",   sets:3, reps:"12回", note:"体を前傾で大胸筋に集中" },
+          { name:"アーチャープッシュアップ", sets:3, reps:"8回", note:"左右交互・片側強化" },
         ]
       },
     ]
@@ -155,16 +155,16 @@ const WORKOUT = {
         label:"Level 1", sub:"15〜20分 / 疲弊してる日", color:"#555",
         sets:[
           { name:"懸垂（ぶら下がり機）", sets:3, reps:"限界回数", note:"降りる時もゆっくり3秒" },
-          { name:"スーパーマン",          sets:3, reps:"15回",     note:"2秒キープで脊柱起立筋" },
+          { name:"スーパーマン",          sets:3, reps:"15回",    note:"2秒キープで脊柱起立筋" },
         ]
       },
       {
         label:"Level 2", sub:"30〜40分 / 普通の日", color:"#F5C842",
         sets:[
-          { name:"懸垂",                   sets:4, reps:"8回",   note:"肩甲骨を寄せながら引く" },
-          { name:"チンアップ（逆手）",     sets:3, reps:"8回",   note:"二頭筋も同時強化" },
-          { name:"ダンベルロウ（片手4kg）",sets:3, reps:"12回",  note:"台に膝ついて肘を引く" },
-          { name:"スーパーマン",           sets:3, reps:"15回",  note:"背筋全体を収縮" },
+          { name:"懸垂",                  sets:4, reps:"8回",   note:"肩甲骨を寄せながら引く" },
+          { name:"チンアップ（逆手）",    sets:3, reps:"8回",   note:"二頭筋も同時強化" },
+          { name:"ダンベルロウ（片手4kg）",sets:3, reps:"12回", note:"台に膝ついて肘を引く" },
+          { name:"スーパーマン",          sets:3, reps:"15回",  note:"背筋全体を収縮" },
         ]
       },
       {
@@ -251,14 +251,21 @@ function WorkoutPanel() {
   const [muscle, setMuscle] = useState("chest");
   const [level, setLevel]   = useState(1);
   const [checked, setChecked] = useState({});
+
   const g = WORKOUT[muscle];
   const menu = g.levels[level];
   const totalSets = menu.sets.reduce((a,s)=>a+s.sets, 0);
   const doneSets  = Object.values(checked).filter(Boolean).length;
+
   const toggle = (key) => setChecked(p => ({ ...p, [key]: !p[key] }));
   const reset  = () => setChecked({});
+
+  // Reset checks when muscle/level changes
+  const prevRef = { muscle, level };
+
   return (
     <div>
+      {/* Muscle selector */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
         {Object.entries(WORKOUT).map(([k, g]) => (
           <button key={k} onClick={() => { setMuscle(k); setChecked({}); }}
@@ -267,12 +274,16 @@ function WorkoutPanel() {
           </button>
         ))}
       </div>
+
+      {/* Level selector */}
       <div style={{ display:"flex", gap:6, marginBottom:14 }}>
         {WORKOUT[muscle].levels.map((lv, i) => (
           <button key={i} onClick={() => { setLevel(i); setChecked({}); }}
             style={{ ...S.btn(level===i, lv.color), flex:1, fontSize:11 }}>{lv.label}</button>
         ))}
       </div>
+
+      {/* Menu header */}
       <div style={{ ...S.card, borderLeft:`3px solid ${menu.color}` }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:2 }}>
           <div>
@@ -284,10 +295,13 @@ function WorkoutPanel() {
             <div style={{ fontSize:10, color:"#444" }}>セット</div>
           </div>
         </div>
+        {/* Progress bar */}
         <div style={{ background:"#1A1A1A", borderRadius:20, height:4, marginTop:10, overflow:"hidden" }}>
           <div style={{ width:`${totalSets ? doneSets/totalSets*100 : 0}%`, height:"100%", background:menu.color, borderRadius:20, transition:"width .2s" }} />
         </div>
       </div>
+
+      {/* Exercises */}
       <div style={S.card}>
         {menu.sets.map((ex, ei) => (
           <div key={ei} style={{ marginBottom: ei < menu.sets.length-1 ? 4 : 0 }}>
@@ -295,13 +309,13 @@ function WorkoutPanel() {
               {ex.name}
               <span style={{ fontSize:11, color:"#555", fontWeight:400, marginLeft:8 }}>{ex.note}</span>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, paddingTop:6, paddingBottom:4 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(58px, 1fr))", gap:6, paddingTop:6, paddingBottom:4 }}>
               {Array.from({ length:ex.sets }).map((_,si) => {
                 const key = `${ei}-${si}`;
                 const done = checked[key];
                 return (
                   <div key={si} onClick={() => toggle(key)}
-                    style={{ background: done ? `${menu.color}33` : "#1A1A1A", border:`1px solid ${done ? menu.color : "#2A2A2A"}`, borderRadius:4, padding:"6px 6px", cursor:"pointer", fontSize:12, color: done ? menu.color : "#666", minWidth:44, textAlign:"center", transition:"all .15s" }}>
+                    style={{ background: done ? `${menu.color}33` : "#1A1A1A", border:`1px solid ${done ? menu.color : "#2A2A2A"}`, borderRadius:4, padding:"6px 10px", cursor:"pointer", fontSize:12, color: done ? menu.color : "#666", minWidth:52, textAlign:"center", transition:"all .15s" }}>
                     {done ? "✓" : `${si+1}set`}<br/>
                     <span style={{ fontSize:10 }}>{ex.reps}</span>
                   </div>
@@ -311,11 +325,18 @@ function WorkoutPanel() {
           </div>
         ))}
       </div>
+
+      {/* Reset */}
       {doneSets > 0 && (
-        <button onClick={reset} style={{ ...S.btn(false), width:"100%", padding:"8px", fontSize:12 }}>リセット</button>
+        <button onClick={reset} style={{ ...S.btn(false), width:"100%", padding:"8px", fontSize:12 }}>
+          リセット
+        </button>
       )}
+
       {doneSets === totalSets && totalSets > 0 && (
-        <div style={{ textAlign:"center", padding:"16px 0", fontSize:14, color:"#34D399" }}>🎉 完了！お疲れ様でした</div>
+        <div style={{ textAlign:"center", padding:"16px 0", fontSize:14, color:"#34D399" }}>
+          🎉 完了！お疲れ様でした
+        </div>
       )}
     </div>
   );
@@ -334,10 +355,11 @@ const SHOP_CAT_COLORS = { "肉・魚":"#FF6B6B", "野菜":"#34D399", "主食":"#
 function ShoppingList({ shopItems, setShopItems }) {
   const [newLabel, setNewLabel] = useState("");
   const [newCat, setNewCat]     = useState("その他");
+
   const toggle = (id) => {
     const updated = shopItems.map(i => i.id === id ? { ...i, checked: !i.checked } : i);
     setShopItems(updated);
-    storageSet("sakai:shopping", updated);
+    storageSet("fukami:shopping", updated);
   };
   const addItem = () => {
     const label = newLabel.trim();
@@ -345,32 +367,37 @@ function ShoppingList({ shopItems, setShopItems }) {
     const newItem = { id:`s${Date.now()}`, label, category:newCat, fixed:false, checked:false };
     const updated = [...shopItems, newItem];
     setShopItems(updated);
-    storageSet("sakai:shopping", updated);
+    storageSet("fukami:shopping", updated);
     setNewLabel("");
   };
   const deleteItem = (id) => {
     const updated = shopItems.filter(i => i.fixed || i.id !== id);
     setShopItems(updated);
-    storageSet("sakai:shopping", updated);
+    storageSet("fukami:shopping", updated);
   };
   const resetAll = () => {
     const updated = shopItems.map(i => ({ ...i, checked:false }));
     setShopItems(updated);
-    storageSet("sakai:shopping", updated);
+    storageSet("fukami:shopping", updated);
   };
-  const checkedCount = shopItems.filter(i => i.checked).length;
+
+  const checked = shopItems.filter(i => i.checked).length;
   const cats = [...new Set(shopItems.map(i => i.category))];
+
   return (
     <div>
+      {/* Progress */}
       <div style={S.card}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
           <div style={{ fontSize:13, color:"#555" }}>今週の買い物リスト</div>
-          <div style={{ fontSize:12, color:"#34D399" }}>{checkedCount}/{shopItems.length}</div>
+          <div style={{ fontSize:12, color:"#34D399" }}>{checked}/{shopItems.length}</div>
         </div>
         <div style={{ background:"#1A1A1A", borderRadius:20, height:5 }}>
-          <div style={{ width:`${shopItems.length ? checkedCount/shopItems.length*100 : 0}%`, height:"100%", background:"#34D399", borderRadius:20, transition:"width .2s" }} />
+          <div style={{ width:`${shopItems.length ? checked/shopItems.length*100 : 0}%`, height:"100%", background:"#34D399", borderRadius:20, transition:"width .2s" }} />
         </div>
       </div>
+
+      {/* Items by category */}
       {cats.map(cat => (
         <div key={cat} style={S.card}>
           <div style={{ fontSize:11, color: SHOP_CAT_COLORS[cat]||"#555", marginBottom:8, fontWeight:700 }}>{cat}</div>
@@ -388,6 +415,8 @@ function ShoppingList({ shopItems, setShopItems }) {
           ))}
         </div>
       ))}
+
+      {/* Add item */}
       <div style={S.card}>
         <div style={{ fontSize:12, color:"#555", marginBottom:8 }}>追加</div>
         <div style={{ display:"flex", gap:6, marginBottom:8 }}>
@@ -401,8 +430,11 @@ function ShoppingList({ shopItems, setShopItems }) {
           ))}
         </div>
       </div>
-      {checkedCount > 0 && (
-        <button onClick={resetAll} style={{ ...S.btn(false), width:"100%", padding:"10px", fontSize:12 }}>チェックをすべてリセット</button>
+
+      {checked > 0 && (
+        <button onClick={resetAll} style={{ ...S.btn(false), width:"100%", padding:"10px", fontSize:12 }}>
+          チェックをすべてリセット
+        </button>
       )}
     </div>
   );
@@ -422,7 +454,7 @@ function WeeklyReport({ dayData }) {
     const dd = dayData[dk] || {};
     const habits = dd.habits || {};
     HABIT_ITEMS.forEach(h => { if (habits[h.id]) habitCounts[h.id]++; });
-    DEFAULT_TASKS.forEach(t => {
+    (DEFAULT_TASKS).forEach(t => {
       taskTotal++;
       if ((dd.tasks||{})[t.id]) taskDone++;
     });
@@ -430,9 +462,11 @@ function WeeklyReport({ dayData }) {
   const sorted = HABIT_ITEMS.map(h => ({ ...h, count: habitCounts[h.id] })).sort((a,b)=>b.count-a.count);
   const mvp = sorted[0];
   const worst = sorted[sorted.length-1];
-  const weightPoints = days.map(dk => ({ dk, w: dayData[dk]?.weight })).filter(p => p.w);
+  const weightPoints = days.map(dk => ({ dk, w: dayData[dk]?.weight, bf: dayData[dk]?.bodyFat })).filter(p => p.w);
+
   return (
     <div>
+      {/* Weight graph */}
       {weightPoints.length >= 2 && (
         <div style={S.card}>
           <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>今週の体重推移</div>
@@ -513,34 +547,50 @@ function WeeklyReport({ dayData }) {
 function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
   const [subTab, setSubTab] = useState("current");
   const [editAssets, setEditAssets] = useState({ ...assets });
+
   useEffect(() => { setEditAssets({ ...assets }); }, [assets]);
+
   const total = Object.values(editAssets).reduce((a,b) => a + Number(b||0), 0);
   const defPct = Math.min((Number(editAssets.defense)||0) / 1000000 * 100, 100);
+
   const saveSnapshot = () => {
-    const snap = { ts: Date.now(), label: new Date().toLocaleDateString("ja-JP"), total, ...editAssets };
+    const snap = {
+      ts: Date.now(),
+      label: new Date().toLocaleDateString("ja-JP"),
+      total,
+      ...editAssets,
+    };
     const updated = [...assetHistory, snap];
     setAssetHistory(updated);
-    storageSet("sakai:assetHistory", updated);
+    storageSet("fukami:assetHistory", updated);
     setAssets({ ...editAssets });
-    storageSet("sakai:assets", editAssets);
+    storageSet("fukami:assets", editAssets);
     alert("記録しました ✓");
   };
+
   const deleteSnap = (ts) => {
     const updated = assetHistory.filter(h => h.ts !== ts);
     setAssetHistory(updated);
-    storageSet("sakai:assetHistory", updated);
+    storageSet("fukami:assetHistory", updated);
   };
+
+  // Graph points
   const histPoints = assetHistory.slice(-12);
+
+  // Simulation
   const nisaMonthly = 50000, defMonthly = 30000, rate = 0.07/12;
   const simData = [];
-  let simNisa = Number(assets.nisa||0), simDef = Number(assets.defense||0);
-  let simSbi = Number(assets.sbi_main||0), simRak = Number(assets.rakuten||0);
+  let simNisa = Number(assets.nisa||0);
+  let simDef  = Number(assets.defense||0);
+  let simSbi  = Number(assets.sbi_main||0);
+  let simRak  = Number(assets.rakuten||0);
   for (let m=0; m<=36; m++) {
     simData.push({ m, total: simNisa+simDef+simSbi+simRak });
     simNisa = (simNisa + nisaMonthly) * (1+rate);
     simDef  = Math.min(simDef + defMonthly, 1000000);
   }
   const simMax = Math.max(...simData.map(d=>d.total), 1);
+
   return (
     <div>
       <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
@@ -548,13 +598,20 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
           <button key={k} onClick={() => setSubTab(k)} style={S.btn(subTab===k)}>{l}</button>
         ))}
       </div>
+
       {subTab === "current" && (
         <div style={S.card}>
           <div style={{ fontSize:13, color:"#555", marginBottom:12 }}>口座残高を入力</div>
           {ASSET_ACCOUNTS.map(a => (
             <div key={a.key} style={{ marginBottom:10 }}>
               <div style={{ fontSize:11, color:a.color, marginBottom:4 }}>{a.label}</div>
-              <input type="number" value={editAssets[a.key]||""} onChange={e => setEditAssets(prev => ({ ...prev, [a.key]: Number(e.target.value) }))} placeholder="0" style={S.input} />
+              <input
+                type="number"
+                value={editAssets[a.key]||""}
+                onChange={e => setEditAssets(prev => ({ ...prev, [a.key]: Number(e.target.value) }))}
+                placeholder="0"
+                style={S.input}
+              />
             </div>
           ))}
           <div style={{ borderTop:"1px solid #1A1A1A", paddingTop:12, marginTop:4 }}>
@@ -570,20 +627,27 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
               <div style={{ background:"#1A1A1A", borderRadius:20, height:6 }}>
                 <div style={{ width:`${defPct}%`, height:"100%", background:"#F5C842", borderRadius:20, transition:"width .3s" }} />
               </div>
-              <div style={{ fontSize:11, color:"#555", marginTop:4 }}>あと約{Math.max(0, Math.ceil((1000000-(Number(editAssets.defense)||0))/30000))}ヶ月（月3万積立）</div>
+              <div style={{ fontSize:11, color:"#555", marginTop:4 }}>
+                あと約{Math.max(0, Math.ceil((1000000-(Number(editAssets.defense)||0))/30000))}ヶ月（月3万積立）
+              </div>
             </div>
-            <button onClick={saveSnapshot} style={{ ...S.btn(true,"#34D399"), width:"100%", padding:"10px" }}>今日の残高を記録する</button>
+            <button onClick={saveSnapshot} style={{ ...S.btn(true,"#34D399"), width:"100%", padding:"10px" }}>
+              今日の残高を記録する
+            </button>
           </div>
         </div>
       )}
+
       {subTab === "graph" && (
         <div style={S.card}>
           <div style={{ fontSize:12, color:"#555", marginBottom:12 }}>資産推移（直近12回）</div>
           {histPoints.length < 2 ? (
-            <div style={{ textAlign:"center", padding:"30px", color:"#444", fontSize:13 }}>まだデータが少ないです。<br />記録を続けると推移グラフが表示されます。</div>
+            <div style={{ textAlign:"center", padding:"30px", color:"#444", fontSize:13 }}>
+              まだデータが少ないです。<br />記録を続けると推移グラフが表示されます。
+            </div>
           ) : (
             <>
-              <svg width="100%" viewBox="0 0 300 120" style={{ display:"block", marginBottom:8 }}>
+              <svg width="100%" viewBox={`0 0 300 120`} style={{ display:"block", marginBottom:8 }}>
                 {(() => {
                   const vals = histPoints.map(h=>h.total);
                   const mn = Math.min(...vals), mx = Math.max(...vals);
@@ -594,7 +658,9 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
                   return (
                     <>
                       <polyline points={pts} fill="none" stroke="#34D399" strokeWidth="2" />
-                      {histPoints.map((h,i) => (<circle key={i} cx={px(i)} cy={py(h.total)} r="3" fill="#34D399" />))}
+                      {histPoints.map((h,i) => (
+                        <circle key={i} cx={px(i)} cy={py(h.total)} r="3" fill="#34D399" />
+                      ))}
                       <line x1="15" y1="110" x2="285" y2="110" stroke="#1A1A1A" strokeWidth="1"/>
                     </>
                   );
@@ -607,12 +673,17 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
               </div>
               {histPoints.length >= 2 && (() => {
                 const diff = histPoints[histPoints.length-1].total - histPoints[histPoints.length-2].total;
-                return (<div style={{ marginTop:8, textAlign:"center", fontSize:13, color: diff >= 0 ? "#34D399" : "#FF6B6B" }}>前回比 {diff >= 0 ? "+" : ""}{fmt(diff)}</div>);
+                return (
+                  <div style={{ marginTop:8, textAlign:"center", fontSize:13, color: diff >= 0 ? "#34D399" : "#FF6B6B" }}>
+                    前回比 {diff >= 0 ? "+" : ""}{fmt(diff)}
+                  </div>
+                );
               })()}
             </>
           )}
         </div>
       )}
+
       {subTab === "sim" && (
         <div style={S.card}>
           <div style={{ fontSize:12, color:"#555", marginBottom:4 }}>36ヶ月シミュレーション</div>
@@ -625,7 +696,9 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
               const milestones=[1000000,3000000,5000000].filter(m=>m<=simMax);
               return (
                 <>
-                  {milestones.map(m=>(<line key={m} x1="15" y1={py(m)} x2="285" y2={py(m)} stroke="#2A2A2A" strokeWidth="1" strokeDasharray="3,3"/>))}
+                  {milestones.map(m=>(
+                    <line key={m} x1="15" y1={py(m)} x2="285" y2={py(m)} stroke="#2A2A2A" strokeWidth="1" strokeDasharray="3,3"/>
+                  ))}
                   <polyline points={pts} fill="none" stroke="#B5D4F4" strokeWidth="2"/>
                   <line x1="15" y1="110" x2="285" y2="110" stroke="#1A1A1A" strokeWidth="1"/>
                 </>
@@ -642,11 +715,14 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
           </div>
         </div>
       )}
+
       {subTab === "history" && (
         <div style={S.card}>
           <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>記録履歴</div>
           {assetHistory.length === 0 ? (
-            <div style={{ textAlign:"center", padding:"30px", color:"#444", fontSize:13 }}>まだ記録がありません。<br/>毎週日曜・月末に記録してください。</div>
+            <div style={{ textAlign:"center", padding:"30px", color:"#444", fontSize:13 }}>
+              まだ記録がありません。<br/>毎週日曜・月末に記録してください。
+            </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {[...assetHistory].reverse().map(h => (
@@ -659,7 +735,9 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    {ASSET_ACCOUNTS.map(a => (<div key={a.key} style={{ fontSize:10, color:a.color }}>{a.label}: {fmt(h[a.key])}</div>))}
+                    {ASSET_ACCOUNTS.map(a => (
+                      <div key={a.key} style={{ fontSize:10, color:a.color }}>{a.label}: {fmt(h[a.key])}</div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -678,22 +756,39 @@ function DayDetail({ dk, data, onChange, onClose }) {
   const [newSchedule, setNewSchedule]   = useState("");
   const d = data || {};
   const update = (field, val) => onChange(dk, { ...d, [field]: val });
+
+  // Schedule handlers
   const addSchedule = () => {
     const label = newSchedule.trim();
     if (!label) return;
-    update("schedule", [...(d.schedule||[]), { id:`sc${Date.now()}`, label, done:false }]);
+    const list = d.schedule || [];
+    update("schedule", [...list, { id:`sc${Date.now()}`, label, done:false }]);
     setNewSchedule("");
   };
-  const toggleSchedule = (id) => update("schedule", (d.schedule||[]).map(s => s.id===id ? {...s, done:!s.done} : s));
-  const deleteSchedule = (id) => update("schedule", (d.schedule||[]).filter(s => s.id!==id));
+  const toggleSchedule = (id) => {
+    update("schedule", (d.schedule||[]).map(s => s.id===id ? {...s, done:!s.done} : s));
+  };
+  const deleteSchedule = (id) => {
+    update("schedule", (d.schedule||[]).filter(s => s.id!==id));
+  };
+
   const addCustomTask = () => {
     const label = newTaskLabel.trim();
     if (!label) return;
-    update("customTasks", [...(d.customTasks||[]), { id:`c${Date.now()}`, label, done:false }]);
+    const custom = d.customTasks || [];
+    const newItem = { id: `c${Date.now()}`, label, done: false };
+    update("customTasks", [...custom, newItem]);
     setNewTaskLabel("");
   };
-  const toggleCustomTask = (id) => update("customTasks", (d.customTasks||[]).map(t => t.id===id ? {...t, done:!t.done} : t));
-  const deleteCustomTask = (id) => update("customTasks", (d.customTasks||[]).filter(t => t.id!==id));
+  const toggleCustomTask = (id) => {
+    const custom = (d.customTasks || []).map(t => t.id === id ? { ...t, done: !t.done } : t);
+    update("customTasks", custom);
+  };
+  const deleteCustomTask = (id) => {
+    update("customTasks", (d.customTasks || []).filter(t => t.id !== id));
+  };
+
+  // Ledger score
   const ledgerChecked = d.ledger || {};
   const totalScore = Object.keys(LEDGER).reduce((acc, period) => {
     const { debit, credit } = LEDGER[period];
@@ -702,11 +797,15 @@ function DayDetail({ dk, data, onChange, onClose }) {
     return acc + ds + cs;
   }, 0);
   const mode = getMode(totalScore);
+
   const toggleLedger = (id) => update("ledger", { ...ledgerChecked, [id]: !ledgerChecked[id] });
   const toggleTask  = (id) => update("tasks",   { ...(d.tasks||{}),   [id]: !(d.tasks||{})[id] });
   const toggleHabit = (id) => update("habits",  { ...(d.habits||{}),  [id]: !(d.habits||{})[id] });
+
+  const isToday = dk === todayKey;
   const dObj = new Date(dk.replace(/-/g,"/"));
   const label = `${dObj.getMonth()+1}月${dObj.getDate()}日（${"日月火水木金土"[dObj.getDay()]}）`;
+
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.85)", zIndex:100, overflowY:"auto" }}>
       <div style={{ ...S.app, paddingTop:0 }}>
@@ -714,15 +813,21 @@ function DayDetail({ dk, data, onChange, onClose }) {
           <div style={{ fontSize:15, fontWeight:700 }}>{label}</div>
           <button onClick={onClose} style={{ background:"transparent", border:"none", color:"#666", cursor:"pointer", fontSize:20 }}>✕</button>
         </div>
+
+        {/* Sub tabs */}
         <div style={{ display:"flex", gap:4, marginBottom:14, overflowX:"auto" }}>
           {[["schedule","📌 予定"],["routine","📅 ルーティン"],["ledger","📊 仕訳"],["tasks","✅ タスク"],["habits","🏃 習慣"],["memo","📝 メモ"]].map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)} style={{ ...S.btn(tab===k), whiteSpace:"nowrap", flexShrink:0 }}>{l}</button>
           ))}
         </div>
+
+        {/* SCHEDULE */}
         {tab === "schedule" && (
           <div style={S.card}>
             <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>📌 この日の予定</div>
-            {(d.schedule||[]).length === 0 && (<div style={{ fontSize:13, color:"#333", textAlign:"center", padding:"20px 0" }}>予定なし</div>)}
+            {(d.schedule||[]).length === 0 && (
+              <div style={{ fontSize:13, color:"#333", textAlign:"center", padding:"20px 0" }}>予定なし</div>
+            )}
             {(d.schedule||[]).map(s => (
               <div key={s.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:"1px solid #0F0F0F" }}>
                 <div onClick={() => toggleSchedule(s.id)}
@@ -734,11 +839,19 @@ function DayDetail({ dk, data, onChange, onClose }) {
               </div>
             ))}
             <div style={{ display:"flex", gap:8, marginTop:14 }}>
-              <input value={newSchedule} onChange={e => setNewSchedule(e.target.value)} onKeyDown={e => e.key==="Enter" && addSchedule()} placeholder="予定を書き込む..." style={{ ...S.input, flex:1 }} />
+              <input
+                value={newSchedule}
+                onChange={e => setNewSchedule(e.target.value)}
+                onKeyDown={e => e.key==="Enter" && addSchedule()}
+                placeholder="予定を書き込む..."
+                style={{ ...S.input, flex:1 }}
+              />
               <button onClick={addSchedule} style={{ ...S.btn(true,"#F5C842"), padding:"8px 14px", flexShrink:0 }}>追加</button>
             </div>
           </div>
         )}
+
+        {/* ROUTINE */}
         {tab === "routine" && (
           <div>
             <div style={S.card}>
@@ -761,27 +874,38 @@ function DayDetail({ dk, data, onChange, onClose }) {
             </div>
           </div>
         )}
+
+        {/* LEDGER - BS style */}
         {tab === "ledger" && (
           <div>
             {Object.entries(LEDGER).map(([period, { label, debit, credit }]) => (
               <div key={period} style={S.card}>
                 <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>{label}</div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1px 1fr", gap:0 }}>
+                  {/* 借方 left */}
                   <div style={{ paddingRight:10 }}>
                     <div style={{ fontSize:10, color:"#34D399", marginBottom:6, textAlign:"center", borderBottom:"1px solid #34D39933", paddingBottom:4 }}>借方 / プラス</div>
                     {debit.map(item => (
-                      <div key={item.id} onClick={() => toggleLedger(item.id)} style={{ display:"flex", alignItems:"flex-start", gap:6, padding:"6px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F" }}>
-                        <div style={{ width:14, height:14, borderRadius:3, background: ledgerChecked[item.id] ? "#34D399" : "#1A1A1A", border:"1px solid #333", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#0A0A0A", marginTop:1 }}>{ledgerChecked[item.id] && "✓"}</div>
+                      <div key={item.id} onClick={() => toggleLedger(item.id)}
+                        style={{ display:"flex", alignItems:"flex-start", gap:6, padding:"6px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F" }}>
+                        <div style={{ width:14, height:14, borderRadius:3, background: ledgerChecked[item.id] ? "#34D399" : "#1A1A1A", border:"1px solid #333", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#0A0A0A", marginTop:1 }}>
+                          {ledgerChecked[item.id] && "✓"}
+                        </div>
                         <div style={{ fontSize:11, flex:1, color: ledgerChecked[item.id] ? "#34D399" : "#C8C8C0", lineHeight:1.4 }}>{item.label}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{ background:"#1A1A1A" }} />
+                  {/* divider */}
+                  <div style={{ background:"#1A1A1A", margin:"0 0" }} />
+                  {/* 貸方 right */}
                   <div style={{ paddingLeft:10 }}>
                     <div style={{ fontSize:10, color:"#FF6B6B", marginBottom:6, textAlign:"center", borderBottom:"1px solid #FF6B6B33", paddingBottom:4 }}>貸方 / マイナス</div>
                     {credit.map(item => (
-                      <div key={item.id} onClick={() => toggleLedger(item.id)} style={{ display:"flex", alignItems:"flex-start", gap:6, padding:"6px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F" }}>
-                        <div style={{ width:14, height:14, borderRadius:3, background: ledgerChecked[item.id] ? "#FF6B6B" : "#1A1A1A", border:"1px solid #333", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#0A0A0A", marginTop:1 }}>{ledgerChecked[item.id] && "✓"}</div>
+                      <div key={item.id} onClick={() => toggleLedger(item.id)}
+                        style={{ display:"flex", alignItems:"flex-start", gap:6, padding:"6px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F" }}>
+                        <div style={{ width:14, height:14, borderRadius:3, background: ledgerChecked[item.id] ? "#FF6B6B" : "#1A1A1A", border:"1px solid #333", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#0A0A0A", marginTop:1 }}>
+                          {ledgerChecked[item.id] && "✓"}
+                        </div>
                         <div style={{ fontSize:11, flex:1, color: ledgerChecked[item.id] ? "#FF6B6B" : "#C8C8C0", lineHeight:1.4 }}>{item.label}</div>
                       </div>
                     ))}
@@ -791,11 +915,13 @@ function DayDetail({ dk, data, onChange, onClose }) {
             ))}
             <div style={{ ...S.card, textAlign:"center" }}>
               <div style={{ fontSize:12, color:"#555", marginBottom:4 }}>トータルスコア</div>
-              <div style={{ fontSize:28, fontWeight:700, color:mode.color }}>{totalScore > 0 ? "+" : ""}{totalScore}</div>
+              <div style={{ fontSize:28, fontWeight:700, color:mode.color }}>{totalScore > 0 ? "+":""}{totalScore}</div>
               <div style={{ fontSize:13, color:mode.color, marginTop:4 }}>{mode.label} — {mode.desc}</div>
             </div>
           </div>
         )}
+
+        {/* TASKS */}
         {tab === "tasks" && (
           <div>
             <div style={S.card}>
@@ -803,42 +929,70 @@ function DayDetail({ dk, data, onChange, onClose }) {
               {DEFAULT_TASKS.map(t => {
                 const done = (d.tasks||{})[t.id];
                 return (
-                  <div key={t.id} onClick={() => toggleTask(t.id)} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F" }}>
-                    <div style={{ width:20, height:20, borderRadius:4, background: done ? t.color : "#1A1A1A", border:`1px solid ${done ? t.color : "#333"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0, color:"#0A0A0A" }}>{done && "✓"}</div>
+                  <div key={t.id} onClick={() => toggleTask(t.id)}
+                    style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F" }}>
+                    <div style={{ width:20, height:20, borderRadius:4, background: done ? t.color : "#1A1A1A", border:`1px solid ${done ? t.color : "#333"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0, color:"#0A0A0A" }}>
+                      {done && "✓"}
+                    </div>
                     <div style={{ fontSize:13, flex:1, textDecoration: done ? "line-through" : "none", color: done ? "#555" : "#C8C8C0" }}>{t.label}</div>
                     <div style={S.tag(t.color)}>{t.category}</div>
                   </div>
                 );
               })}
             </div>
+
             <div style={S.card}>
               <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>今日だけのタスク</div>
-              {(d.customTasks||[]).map(t => (
+              {(d.customTasks || []).map(t => (
                 <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:"1px solid #0F0F0F" }}>
-                  <div onClick={() => toggleCustomTask(t.id)} style={{ width:20, height:20, borderRadius:4, background: t.done ? "#A78BFA" : "#1A1A1A", border:`1px solid ${t.done ? "#A78BFA" : "#333"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0, color:"#0A0A0A", cursor:"pointer" }}>{t.done && "✓"}</div>
+                  <div onClick={() => toggleCustomTask(t.id)}
+                    style={{ width:20, height:20, borderRadius:4, background: t.done ? "#A78BFA" : "#1A1A1A", border:`1px solid ${t.done ? "#A78BFA" : "#333"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0, color:"#0A0A0A", cursor:"pointer" }}>
+                    {t.done && "✓"}
+                  </div>
                   <div onClick={() => toggleCustomTask(t.id)} style={{ fontSize:13, flex:1, textDecoration: t.done ? "line-through" : "none", color: t.done ? "#555" : "#C8C8C0", cursor:"pointer" }}>{t.label}</div>
                   <button onClick={() => deleteCustomTask(t.id)} style={{ background:"transparent", border:"none", color:"#444", cursor:"pointer", fontSize:14, padding:"0 4px" }}>×</button>
                 </div>
               ))}
               <div style={{ display:"flex", gap:8, marginTop:12 }}>
-                <input value={newTaskLabel} onChange={e => setNewTaskLabel(e.target.value)} onKeyDown={e => e.key==="Enter" && addCustomTask()} placeholder="タスクを追加..." style={{ ...S.input, flex:1 }} />
-                <button onClick={addCustomTask} style={{ ...S.btn(true,"#A78BFA"), padding:"8px 14px", flexShrink:0 }}>追加</button>
+                <input
+                  value={newTaskLabel}
+                  onChange={e => setNewTaskLabel(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addCustomTask()}
+                  placeholder="タスクを追加..."
+                  style={{ ...S.input, flex:1 }}
+                />
+                <button onClick={addCustomTask} style={{ ...S.btn(true, "#A78BFA"), padding:"8px 14px", flexShrink:0 }}>追加</button>
               </div>
             </div>
           </div>
         )}
+
+        {/* HABITS */}
         {tab === "habits" && (
           <div>
+            {/* 体重・体脂肪 */}
             <div style={S.card}>
               <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>⚖️ 体組成記録</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 <div>
                   <div style={{ fontSize:11, color:"#B5D4F4", marginBottom:4 }}>体重 (kg)</div>
-                  <input type="number" step="0.1" value={d.weight||""} onChange={e => update("weight", e.target.value ? Number(e.target.value) : "")} placeholder="--.-" style={{ ...S.input, textAlign:"center", fontSize:18, fontWeight:700, color:"#B5D4F4" }} />
+                  <input
+                    type="number" step="0.1"
+                    value={d.weight || ""}
+                    onChange={e => update("weight", e.target.value ? Number(e.target.value) : "")}
+                    placeholder="--.-"
+                    style={{ ...S.input, textAlign:"center", fontSize:18, fontWeight:700, color:"#B5D4F4" }}
+                  />
                 </div>
                 <div>
                   <div style={{ fontSize:11, color:"#FF6B6B", marginBottom:4 }}>体脂肪率 (%)</div>
-                  <input type="number" step="0.1" value={d.bodyFat||""} onChange={e => update("bodyFat", e.target.value ? Number(e.target.value) : "")} placeholder="--.-" style={{ ...S.input, textAlign:"center", fontSize:18, fontWeight:700, color:"#FF6B6B" }} />
+                  <input
+                    type="number" step="0.1"
+                    value={d.bodyFat || ""}
+                    onChange={e => update("bodyFat", e.target.value ? Number(e.target.value) : "")}
+                    placeholder="--.-"
+                    style={{ ...S.input, textAlign:"center", fontSize:18, fontWeight:700, color:"#FF6B6B" }}
+                  />
                 </div>
               </div>
               {d.bodyFat && (
@@ -847,34 +1001,51 @@ function DayDetail({ dk, data, onChange, onClose }) {
                     <div style={{ width:`${Math.min(d.bodyFat/30*100,100)}%`, height:"100%", background: d.bodyFat <= 10 ? "#34D399" : d.bodyFat <= 15 ? "#F5C842" : "#FF6B6B", borderRadius:20, transition:"width .3s" }} />
                   </div>
                   <div style={{ fontSize:11, color: d.bodyFat <= 10 ? "#34D399" : d.bodyFat <= 15 ? "#F5C842" : "#FF6B6B", whiteSpace:"nowrap" }}>
-                    目標10% {d.bodyFat <= 10 ? "✓ 達成" : `あと${(d.bodyFat-10).toFixed(1)}%`}
+                    目標10% {d.bodyFat <= 10 ? "✓ 達成" : `あと${(d.bodyFat - 10).toFixed(1)}%`}
                   </div>
                 </div>
               )}
             </div>
+
             <div style={S.card}>
               <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>習慣チェック</div>
-              {HABIT_ITEMS.map(h => {
-                const done = (d.habits||{})[h.id];
-                return (
-                  <div key={h.id} onClick={() => toggleHabit(h.id)} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F" }}>
-                    <div style={{ width:22, height:22, borderRadius:4, background: done ? h.color : "#1A1A1A", border:`1px solid ${done ? h.color : "#333"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0, color:"#0A0A0A" }}>{done && "✓"}</div>
-                    <div style={{ fontSize:14 }}>{h.icon}</div>
-                    <div style={{ fontSize:13, color: done ? "#E8E8E0" : "#C8C8C0" }}>{h.label}</div>
+            {HABIT_ITEMS.map(h => {
+              const done = (d.habits||{})[h.id];
+              return (
+                <div key={h.id} onClick={() => toggleHabit(h.id)}
+                  style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", cursor:"pointer", borderBottom:"1px solid #0F0F0F", background: done ? `${h.color}11` : "transparent", borderRadius:4 }}>
+                  <div style={{ width:22, height:22, borderRadius:4, background: done ? h.color : "#1A1A1A", border:`1px solid ${done ? h.color : "#333"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, flexShrink:0, color:"#0A0A0A" }}>
+                    {done && "✓"}
                   </div>
-                );
-              })}
-              <div style={{ borderTop:"1px solid #1A1A1A", paddingTop:14, marginTop:6 }}>
-                <div style={{ fontSize:11, color:"#555", marginBottom:6 }}>今日の一言メモ</div>
-                <textarea value={d.habitMemo||""} onChange={e => update("habitMemo", e.target.value)} placeholder="今日やったこと・気づき・一言で" style={{ ...S.input, minHeight:90, resize:"vertical", lineHeight:1.8 }} />
-              </div>
+                  <div style={{ fontSize:14 }}>{h.icon}</div>
+                  <div style={{ fontSize:13, color: done ? "#E8E8E0" : "#C8C8C0" }}>{h.label}</div>
+                </div>
+              );
+            })}
+            <div style={{ borderTop:"1px solid #1A1A1A", paddingTop:14, marginTop:6 }}>
+              <div style={{ fontSize:11, color:"#555", marginBottom:6 }}>今日の一言メモ</div>
+              <textarea
+                value={d.habitMemo || ""}
+                onChange={e => update("habitMemo", e.target.value)}
+                placeholder="今日やったこと・気づき・一言で"
+                style={{ ...S.input, minHeight:90, resize:"vertical", lineHeight:1.8 }}
+              />
+              {d.habitMemo && <div style={{ fontSize:11, color:"#444", textAlign:"right", marginTop:2 }}>自動保存済み</div>}
             </div>
           </div>
+          </div>
         )}
+
+        {/* MEMO */}
         {tab === "memo" && (
           <div style={S.card}>
             <div style={{ fontSize:12, color:"#555", marginBottom:8 }}>メモ・予定・気づき</div>
-            <textarea value={d.memo||""} onChange={e => update("memo", e.target.value)} placeholder="自由に書く" style={{ ...S.input, minHeight:200, resize:"vertical", lineHeight:1.8 }} />
+            <textarea
+              value={d.memo || ""}
+              onChange={e => update("memo", e.target.value)}
+              placeholder="自由に書く"
+              style={{ ...S.input, minHeight:200, resize:"vertical", lineHeight:1.8 }}
+            />
           </div>
         )}
       </div>
@@ -884,35 +1055,50 @@ function DayDetail({ dk, data, onChange, onClose }) {
 
 // ─── App ──────────────────────────────────────────────────────
 export default function App() {
-  const [mainTab, setMainTab]           = useState("calendar");
-  const [selectedDay, setSelectedDay]   = useState(null);
+  const [mainTab, setMainTab]       = useState("calendar");
+  const [selectedDay, setSelectedDay] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1));
-  const [dayData, setDayData]           = useState({});
-  const [assets, setAssets]             = useState(INIT_ASSETS);
+  const [dayData, setDayData]       = useState({});
+  const [assets, setAssets]         = useState(INIT_ASSETS);
   const [assetHistory, setAssetHistory] = useState([]);
   const [shopItems, setShopItems]       = useState(DEFAULT_SHOPPING);
-  const [loaded, setLoaded]             = useState(false);
+  const [loaded, setLoaded]         = useState(false);
+  const [storageOk, setStorageOk]   = useState(null);
 
+  // Load all data
   useEffect(() => {
-    const dd = storageGet("sakai:dayData", {});
-    const as = storageGet("sakai:assets", INIT_ASSETS);
-    const ah = storageGet("sakai:assetHistory", []);
-    const sh = storageGet("sakai:shopping", DEFAULT_SHOPPING);
-    setDayData(dd);
-    setAssets(as);
-    setAssetHistory(ah);
-    setShopItems(sh);
-    setLoaded(true);
+    (async () => {
+      // Storage test
+      try {
+        await window.storage.set("fukami:test", JSON.stringify({ ok: true }));
+        const r = await window.storage.get("fukami:test");
+        const parsed = r ? JSON.parse(r.value) : null;
+        setStorageOk(parsed?.ok === true);
+      } catch(e) {
+        setStorageOk(false);
+      }
+
+      const dd = await storageGet("fukami:dayData", {});
+      const as = await storageGet("fukami:assets", INIT_ASSETS);
+      const ah = await storageGet("fukami:assetHistory", []);
+      const sh = await storageGet("fukami:shopping", DEFAULT_SHOPPING);
+      setDayData(dd);
+      setAssets(as);
+      setAssetHistory(ah);
+      setShopItems(sh);
+      setLoaded(true);
+    })();
   }, []);
 
   const updateDay = useCallback((dk, data) => {
     setDayData(prev => {
       const next = { ...prev, [dk]: data };
-      storageSet("sakai:dayData", next);
+      storageSet("fukami:dayData", next);
       return next;
     });
   }, []);
 
+  // Calendar grid
   const year  = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
@@ -933,22 +1119,42 @@ export default function App() {
 
   return (
     <div style={S.app}>
+      {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
         <div style={{ fontSize:16, fontWeight:700, letterSpacing:2 }}>SAKAI</div>
-        <div style={{ fontSize:11, color:"#444" }}>簡単なことを難しく考えよう</div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {storageOk !== null && (
+            <div style={{ fontSize:10, color: storageOk ? "#34D399" : "#FF6B6B", display:"flex", alignItems:"center", gap:4 }}>
+              <div style={{ width:6, height:6, borderRadius:"50%", background: storageOk ? "#34D399" : "#FF6B6B" }} />
+              {storageOk ? "保存ON" : "保存NG"}
+            </div>
+          )}
+          <div style={{ fontSize:11, color:"#444" }}>簡単なことを難しく考えよう</div>
+        </div>
       </div>
+
+      {/* Main tabs */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr", gap:4, marginBottom:16 }}>
         {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"]].map(([k,icon]) => (
           <button key={k} onClick={() => setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:18, padding:"8px 0" }}>{icon}</button>
         ))}
       </div>
+
+      {/* Tab label */}
       <div style={{ fontSize:12, color:"#444", marginBottom:12 }}>
         {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト"}[mainTab]}
       </div>
+
+      {/* ── SHOPPING ── */}
       {mainTab === "shopping" && <ShoppingList shopItems={shopItems} setShopItems={setShopItems} />}
-      {mainTab === "workout"  && <WorkoutPanel />}
+
+      {/* ── WORKOUT ── */}
+      {mainTab === "workout" && <WorkoutPanel />}
+
+      {/* ── CALENDAR ── */}
       {mainTab === "calendar" && (
         <>
+          {/* Asset reminder banner */}
           {showAssetBanner && (
             <div style={{ marginBottom:12, padding:"10px 12px", background:"#34D39922", border:"1px solid #34D39944", borderLeft:"3px solid #34D399", borderRadius:4, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
@@ -958,16 +1164,22 @@ export default function App() {
               <button onClick={() => setMainTab("assets")} style={{ ...S.btn(true,"#34D399"), padding:"6px 12px", fontSize:11 }}>記録する</button>
             </div>
           )}
+
+          {/* Month nav */}
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
             <button onClick={() => setCurrentMonth(new Date(year, month-1, 1))} style={{ background:"transparent", border:"none", color:"#666", cursor:"pointer", fontSize:18 }}>‹</button>
             <div style={{ fontSize:14, fontWeight:700 }}>{year}年{month+1}月</div>
             <button onClick={() => setCurrentMonth(new Date(year, month+1, 1))} style={{ background:"transparent", border:"none", color:"#666", cursor:"pointer", fontSize:18 }}>›</button>
           </div>
+
+          {/* Day of week header */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
             {["日","月","火","水","木","金","土"].map((d,i) => (
               <div key={d} style={{ textAlign:"center", fontSize:11, color: i===0 ? "#FF6B6B88" : i===6 ? "#B5D4F488" : "#333", paddingBottom:4 }}>{d}</div>
             ))}
           </div>
+
+          {/* Calendar grid */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
             {cells.map((day, idx) => {
               if (!day) return <div key={idx} />;
@@ -975,26 +1187,28 @@ export default function App() {
               const dd = dayData[dk] || {};
               const isT = dk === todayKey;
               const dow = (firstDow + day - 1) % 7;
-              const hasSchedule = (dd.schedule||[]).length > 0;
-              const hasMemo     = !!dd.memo;
-              const hasTask     = Object.values(dd.tasks||{}).some(v=>v);
-              const habitCount  = Object.values(dd.habits||{}).filter(v=>v).length;
+              const hasMemo    = !!dd.memo;
+              const hasTask    = Object.values(dd.tasks||{}).some(v=>v);
+              const habitCount = Object.values(dd.habits||{}).filter(v=>v).length;
+              const hasSchedule= (dd.schedule||[]).length > 0;
               const accent = dow===0 ? "#FF6B6B" : dow===6 ? "#378ADD" : dow===5 ? "#9B59B6" : "#2A2A2A";
               return (
                 <div key={dk} onClick={() => setSelectedDay(dk)}
-                  style={{ background: isT ? "#F5C84222" : "#111", border:`1px solid ${isT ? "#F5C842" : "#1A1A1A"}`, borderRadius:4, padding:"5px 0", cursor:"pointer", position:"relative", minHeight:44, display:"flex", flexDirection:"column", alignItems:"center" }}>
+                  style={{ background: isT ? "#F5C84222" : "#111", border:`1px solid ${isT ? "#F5C842" : "#1A1A1A"}`, borderRadius:4, padding:"5px 0 5px 0", cursor:"pointer", position:"relative", minHeight:44, display:"flex", flexDirection:"column", alignItems:"center" }}>
                   <div style={{ fontSize:13, fontWeight: isT ? 700 : 400, color: isT ? "#F5C842" : dow===0 ? "#FF6B6B88" : dow===6 ? "#B5D4F4" : "#E8E8E0", marginBottom:3 }}>{day}</div>
                   <div style={{ width:5, height:5, borderRadius:"50%", background:accent, opacity:0.5 }} />
                   {hasSchedule && <div style={{ position:"absolute", top:3, left:3, width:4, height:4, borderRadius:"50%", background:"#F5C842" }} />}
-                  {hasMemo     && <div style={{ position:"absolute", top:3, right:3, width:4, height:4, borderRadius:"50%", background:"#B5D4F4" }} />}
-                  {hasTask     && <div style={{ position:"absolute", bottom:3, right:3, fontSize:8, color:"#34D399" }}>✓</div>}
+                  {hasMemo && <div style={{ position:"absolute", top:3, right:3, width:4, height:4, borderRadius:"50%", background:"#B5D4F4" }} />}
+                  {hasTask && <div style={{ position:"absolute", bottom:3, right:3, fontSize:8, color:"#34D399" }}>✓</div>}
                   {habitCount > 0 && <div style={{ position:"absolute", bottom:3, left:4, fontSize:9, color:"#888" }}>{habitCount}</div>}
                 </div>
               );
             })}
           </div>
+
+          {/* Legend */}
           <div style={{ marginTop:10, display:"flex", gap:10, flexWrap:"wrap" }}>
-            {[["#378ADD","土"],["#9B59B6","金"],["#F5C842","予定"],["#B5D4F4","メモ"],["#34D399","タスク"]].map(([c,l]) => (
+            {[["#378ADD","土"],["#9B59B6","金"],["#F5C842","メモ"],["#34D399","タスク"]].map(([c,l]) => (
               <div key={l} style={{ display:"flex", alignItems:"center", gap:4, fontSize:10, color:"#444" }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:c }} />{l}
               </div>
@@ -1002,12 +1216,26 @@ export default function App() {
           </div>
         </>
       )}
+
+      {/* ── REPORT ── */}
       {mainTab === "report" && <WeeklyReport dayData={dayData} />}
+
+      {/* ── ASSETS ── */}
       {mainTab === "assets" && (
-        <AssetPanel assets={assets} setAssets={setAssets} assetHistory={assetHistory} setAssetHistory={setAssetHistory} />
+        <AssetPanel
+          assets={assets} setAssets={setAssets}
+          assetHistory={assetHistory} setAssetHistory={setAssetHistory}
+        />
       )}
+
+      {/* Day detail modal */}
       {selectedDay && (
-        <DayDetail dk={selectedDay} data={dayData[selectedDay]} onChange={updateDay} onClose={() => setSelectedDay(null)} />
+        <DayDetail
+          dk={selectedDay}
+          data={dayData[selectedDay]}
+          onChange={updateDay}
+          onClose={() => setSelectedDay(null)}
+        />
       )}
     </div>
   );
