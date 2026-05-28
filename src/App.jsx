@@ -110,7 +110,7 @@ const S = {
     borderRadius:4, padding:"6px 12px", cursor:"pointer",
     fontSize:12, fontWeight: active ? 700 : 400, fontFamily:"inherit",
   }),
-  input: { background:"#111", border:"1px solid #2A2A2A", borderRadius:4, color:"#E8E8E0", padding:"8px 10px", fontSize:13, fontFamily:"inherit", width:"100%", boxSizing:"border-box" },
+  input: { background:"#111", border:"1px solid #2A2A2A", borderRadius:4, color:"#E8E8E0", padding:"8px 10px", fontSize:16, fontFamily:"inherit", width:"100%", boxSizing:"border-box" },
   tag:   (color) => ({ background:`${color}22`, color, border:`1px solid ${color}44`, borderRadius:3, padding:"2px 7px", fontSize:11 }),
 };
 
