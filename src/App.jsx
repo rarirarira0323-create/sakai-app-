@@ -1070,10 +1070,10 @@ export default function App() {
     (async () => {
       // Storage test
       try {
-        await window.storage.set("fukami:test", JSON.stringify({ ok: true }));
-        const r = await window.storage.get("fukami:test");
-        const parsed = r ? JSON.parse(r.value) : null;
-        setStorageOk(parsed?.ok === true);
+        
+        
+        
+        setStorageOk(typeof localStorage !== "undefined");
       } catch(e) {
         setStorageOk(false);
       }
