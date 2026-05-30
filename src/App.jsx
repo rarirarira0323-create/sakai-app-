@@ -1,4 +1,30 @@
-import { useState, useEffect, useCallback } from "react";
+const storageGet = (key, fallback) => {
+  try {
+    const r = localStorage.getItem(key);
+    return r ? JSON.parse(r) : fallback;
+  } catch { return fallback; }
+};
+const storageSet = (key, val) => {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+};
+
+const storageGet = async (key, fallback) => {
+  try {
+    const r = await window.storage.get(key);
+    return r ? JSON.parse(r.value) : fallback;
+  } catch { return fallback; }
+};
+const storageSet = (key, val) => {
+  try {  } catch {}
+};const storageGet = (key, fallback) => {
+  try {
+    const r = localStorage.getItem(key);
+    return r ? JSON.parse(r) : fallback;
+  } catch { return fallback; }
+};
+const storageSet = (key, val) => {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+};import { useState, useEffect, useCallback } from "react";
 
 // ─── Constants ───────────────────────────────────────────────
 const TODAY = new Date();
@@ -95,8 +121,8 @@ const storageGet = async (key, fallback) => {
     return r ? JSON.parse(r.value) : fallback;
   } catch { return fallback; }
 };
-const storageSet = async (key, val) => {
-  try { await window.storage.set(key, JSON.stringify(val)); } catch {}
+const storageSet = (key, val) => {
+  try {  } catch {}
 };
 
 // ─── Styles ───────────────────────────────────────────────────
