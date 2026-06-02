@@ -60,15 +60,16 @@ const bmiLabel = (bmi) => {
 
 // ─── アクション定義 ───────────────────────────────────────────
 const ACTIONS = [
-  { id:"note",   label:"note執筆",  icon:"✍️", color:"#F5C842", category:"副業",  minScore:-3, days:"all" },
-  { id:"x",      label:"X投稿",     icon:"𝕏",  color:"#F5C842", category:"副業",  minScore:-5, days:"all" },
-  { id:"novel",  label:"小説執筆",  icon:"📖", color:"#B5D4F4", category:"創作",  minScore:0,  days:"all" },
-  { id:"boki",   label:"簿記勉強",  icon:"📊", color:"#C0DD97", category:"学習",  minScore:-2, days:"all" },
-  { id:"gym",    label:"筋トレ",    icon:"💪", color:"#FF6B6B", category:"健康",  minScore:-5, days:"weekday" },
-  { id:"swim",   label:"水泳",      icon:"🏊", color:"#4ECDC4", category:"健康",  minScore:-5, days:"sat" },
-  { id:"sauna",  label:"サウナ",    icon:"🧖", color:"#E74C3C", category:"健康",  minScore:-3, days:"sun" },
-  { id:"sleep",  label:"23時就寝",  icon:"🌙", color:"#A78BFA", category:"健康",  minScore:-5, days:"all" },
-  { id:"blood",  label:"献血",      icon:"🩸", color:"#FF6B6B", category:"社会",  minScore:1,  days:"holiday_weekday" },
+  { id:"note",   label:"note執筆",       icon:"✍️", color:"#C4973A", category:"副業",  minScore:-3, days:"all" },
+  { id:"x",      label:"X投稿",          icon:"𝕏",  color:"#C4973A", category:"副業",  minScore:-5, days:"all" },
+  { id:"novel",  label:"小説執筆",       icon:"📖", color:"#5B9BD5", category:"創作",  minScore:0,  days:"all" },
+  { id:"boki",   label:"簿記勉強",       icon:"📊", color:"#4ECDC4", category:"学習",  minScore:-2, days:"all" },
+  { id:"gym",    label:"筋トレ",         icon:"💪", color:"#C0756A", category:"健康",  minScore:-5, days:"weekday" },
+  { id:"swim",   label:"水泳",           icon:"🏊", color:"#4ECDC4", category:"健康",  minScore:-5, days:"sat" },
+  { id:"sauna",  label:"サウナ",         icon:"🧖", color:"#C0756A", category:"健康",  minScore:-3, days:"sun" },
+  { id:"sleep",  label:"23時就寝",       icon:"🌙", color:"#8B7FD4", category:"健康",  minScore:-5, days:"all" },
+  { id:"blood",  label:"献血",           icon:"🩸", color:"#C0756A", category:"社会",  minScore:1,  days:"holiday_weekday" },
+  { id:"epay",   label:"電子決済まとめ", icon:"💳", color:"#5B9BD5", category:"家計",  minScore:-5, days:"sun" },
 ];
 
 const getActionsForDay = (dk, dow, score) => {
@@ -147,16 +148,16 @@ const INIT_ASSETS = { nisa:0, defense:0, sbi_main:0, rakuten:0 };
 
 // ─── Styles ───────────────────────────────────────────────────
 const S = {
-  app:  { background:"#0A0A0A", minHeight:"100vh", color:"#E8E8E0", fontFamily:"'Georgia', serif", padding:"12px 14px", maxWidth:480, margin:"0 auto" },
-  card: { background:"#111", border:"1px solid #1A1A1A", borderRadius:6, padding:"14px", marginBottom:12 },
-  btn:  (active, color="#F5C842") => ({
+  app:  { background:"#1A1F2E", minHeight:"100vh", color:"#D4D8E8", fontFamily:"'Georgia', serif", padding:"12px 14px", maxWidth:480, margin:"0 auto" },
+  card: { background:"#242938", border:"1px solid #2E3448", borderRadius:6, padding:"14px", marginBottom:12 },
+  btn:  (active, color="#C4973A") => ({
     background: active ? color : "transparent",
-    color: active ? "#0A0A0A" : "#666",
-    border: `1px solid ${active ? color : "#222"}`,
+    color: active ? "#1A1F2E" : "#6B7280",
+    border: `1px solid ${active ? color : "#2E3448"}`,
     borderRadius:4, padding:"6px 12px", cursor:"pointer",
     fontSize:12, fontWeight: active ? 700 : 400, fontFamily:"inherit",
   }),
-  input: { background:"#111", border:"1px solid #2A2A2A", borderRadius:4, color:"#E8E8E0", padding:"8px 10px", fontSize:16, fontFamily:"inherit", width:"100%", boxSizing:"border-box" },
+  input: { background:"#242938", border:"1px solid #3A4060", borderRadius:4, color:"#D4D8E8", padding:"8px 10px", fontSize:16, fontFamily:"inherit", width:"100%", boxSizing:"border-box" },
   tag:  (color) => ({ background:`${color}22`, color, border:`1px solid ${color}44`, borderRadius:3, padding:"2px 7px", fontSize:11 }),
 };
 
@@ -847,7 +848,7 @@ function DayDetail({ dk, data, onChange, onClose, height }) {
                 </div>
               ))}
               <div style={{ display:"flex", gap:8, marginTop:12 }}>
-                <input value={newExpense} onChange={e=>setNewExpense(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addExpense()} placeholder="例：昼飯800円、葉巻5000円" style={{ ...S.input, flex:1 }} />
+                <input value={newExpense} onChange={e=>setNewExpense(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addExpense()} placeholder="現金支出のみ（例：昼飯800円）" style={{ ...S.input, flex:1 }} />
                 <button onClick={addExpense} style={{ ...S.btn(true,"#34D399"), padding:"8px 14px", flexShrink:0 }}>追加</button>
               </div>
             </div>
