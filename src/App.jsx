@@ -269,6 +269,95 @@ const WORKOUT = {
   },
 };
 
+// ─── Weekend Schedule ────────────────────────────────────────
+const SAT_SCHEDULE = [
+  { time:"11:00",       label:"出発",       sub:"TSUTAYA・ゴミ出し・食料買い出し", type:"move",   icon:"🚗" },
+  { time:"14:00",       label:"帰宅",       sub:"買い出し完了",                   type:"home",   icon:"🏠" },
+  { time:"14:00〜15:30",label:"作業時間",   sub:"執筆・Note・リベシティ投稿など", type:"work",   icon:"✍️" },
+  { time:"15:30",       label:"水泳へ出発", sub:"プールへ",                       type:"move",   icon:"🏊" },
+  { time:"〜",          label:"水泳",       sub:"体を動かす・リフレッシュ",       type:"health", icon:"💧" },
+  { time:"〜",          label:"帰宅・準備", sub:"黒服バイトへ",                   type:"home",   icon:"🌙" },
+  { time:"夜",          label:"黒服出勤",   sub:"夜の仕事",                       type:"work",   icon:"🎩" },
+];
+const SUN_SCHEDULE = [
+  { time:"10:00",       label:"起床",         sub:"朝のルーティン・スキンケア",     type:"home",   icon:"☀️" },
+  { time:"11:00",       label:"出発",         sub:"図書館へ",                       type:"move",   icon:"🚗" },
+  { time:"11:00〜",     label:"図書館で作業", sub:"執筆・Note・集中作業タイム",     type:"work",   icon:"📚" },
+  { time:"13:00〜16:00",label:"温泉・サウナ", sub:"週のご褒美・リセット",           type:"health", icon:"♨️" },
+  { time:"16:00",       label:"帰宅",         sub:"夕食の準備",                     type:"home",   icon:"🍳" },
+  { time:"21:00〜23:00",label:"コメダ珈琲",   sub:"夜の作業タイム・集中できる環境", type:"work",   icon:"☕" },
+  { time:"23:00",       label:"帰宅",         sub:"在庫消費中：1〜2杯のお酒",       type:"home",   icon:"🥃" },
+  { time:"24:00",       label:"就寝",         sub:"明日への充電",                   type:"sleep",  icon:"🌛" },
+];
+const TYPE_STYLES = {
+  move:   { bar:"#6B7280", bg:"rgba(107,114,128,0.12)" },
+  home:   { bar:"#4ECDC4", bg:"rgba(78,205,196,0.10)" },
+  work:   { bar:"#C4973A", bg:"rgba(196,151,58,0.12)" },
+  health: { bar:"#5B9BD5", bg:"rgba(91,155,213,0.12)" },
+  sleep:  { bar:"#8B7FD4", bg:"rgba(139,127,212,0.12)" },
+};
+const WORK_SUMMARY = {
+  "土": ["14:00〜15:30（約1.5時間）"],
+  "日": ["午前・図書館（〜13:00）", "21:00〜23:00・コメダ（2時間）"],
+};
+
+function WeekendSchedule() {
+  const todayDow = TODAY.getDay();
+  const [day, setDay] = useState(todayDow === 0 ? "日" : "土");
+  const schedule = day === "土" ? SAT_SCHEDULE : SUN_SCHEDULE;
+  return (
+    <div>
+      {/* タブ */}
+      <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+        {["土","日"].map(d => (
+          <button key={d} onClick={() => setDay(d)} style={{ ...S.btn(day===d), flex:1, fontSize:15, padding:"12px", letterSpacing:3 }}>{d}曜日</button>
+        ))}
+      </div>
+
+      {/* 作業サマリー */}
+      <div style={{ background:"rgba(196,151,58,0.12)", border:"1px solid rgba(196,151,58,0.3)", borderRadius:6, padding:"12px 14px", marginBottom:12 }}>
+        <div style={{ fontSize:10, letterSpacing:3, color:"#C4973A", marginBottom:6 }}>✍️ 作業時間</div>
+        {WORK_SUMMARY[day].map((t,i) => (
+          <div key={i} style={{ fontSize:13, color:"#D4D8E8", letterSpacing:0.5, marginBottom:2 }}>{t}</div>
+        ))}
+      </div>
+
+      {/* タイムライン */}
+      <div style={{ position:"relative" }}>
+        <div style={{ position:"absolute", left:52, top:0, bottom:0, width:1, background:"rgba(255,255,255,0.06)" }} />
+        {schedule.map((item,i) => {
+          const st = TYPE_STYLES[item.type];
+          return (
+            <div key={i} style={{ display:"flex", alignItems:"flex-start", marginBottom:10, position:"relative" }}>
+              <div style={{ width:44, flexShrink:0, paddingTop:14, paddingRight:8, textAlign:"right" }}>
+                <span style={{ fontSize:10, color:"#6B7280", letterSpacing:0.5, lineHeight:1.2 }}>{item.time}</span>
+              </div>
+              <div style={{ width:10, height:10, borderRadius:"50%", background:st.bar, flexShrink:0, marginTop:17, marginLeft:-1, marginRight:12, boxShadow:`0 0 0 3px ${st.bg}`, zIndex:1 }} />
+              <div style={{ flex:1, background:st.bg, borderLeft:`3px solid ${st.bar}`, borderRadius:"0 6px 6px 0", padding:"10px 12px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:15 }}>{item.icon}</span>
+                  <span style={{ fontSize:13, color:"#D4D8E8", fontWeight:500, letterSpacing:0.3 }}>{item.label}</span>
+                </div>
+                <div style={{ margin:"4px 0 0 24px", fontSize:11, color:"#6B7280", letterSpacing:0.3, lineHeight:1.5 }}>{item.sub}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 凡例 */}
+      <div style={{ marginTop:16, display:"flex", flexWrap:"wrap", gap:10 }}>
+        {[["work","作業"],["health","健康"],["move","移動"],["home","自宅"],["sleep","睡眠"]].map(([type,label]) => (
+          <div key={type} style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:TYPE_STYLES[type].bar }} />
+            <span style={{ fontSize:10, color:"#6B7280" }}>{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── ShoppingList ────────────────────────────────────────────
 const DEFAULT_SHOPPING = [
   { id:"s1", label:"鶏むね肉",     category:"肉・魚", fixed:true },
@@ -949,19 +1038,20 @@ export default function App() {
       )}
 
       {/* メインタブ */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr", gap:4, marginBottom:16 }}>
-        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"]].map(([k,icon]) => (
-          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:18, padding:"8px 0" }}>{icon}</button>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr", gap:4, marginBottom:16 }}>
+        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"],["weekend","📋"]].map(([k,icon]) => (
+          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:16, padding:"8px 0" }}>{icon}</button>
         ))}
       </div>
-      <div style={{ fontSize:12, color:"#444", marginBottom:12 }}>
-        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト"}[mainTab]}
+      <div style={{ fontSize:12, color:"#6B7280", marginBottom:12 }}>
+        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト","weekend":"📋 週末スケジュール"}[mainTab]}
       </div>
 
       {mainTab==="shopping" && <ShoppingList shopItems={shopItems} setShopItems={setShopItems} />}
       {mainTab==="workout"  && <WorkoutPanel />}
       {mainTab==="report"   && <WeeklyReport dayData={dayData} />}
       {mainTab==="assets"   && <AssetPanel assets={assets} setAssets={setAssets} assetHistory={assetHistory} setAssetHistory={setAssetHistory} />}
+      {mainTab==="weekend"  && <WeekendSchedule />}
 
       {mainTab==="calendar" && (
         <>
