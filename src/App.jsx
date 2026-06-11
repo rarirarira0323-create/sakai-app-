@@ -1035,6 +1035,7 @@ export default function App() {
   const [height, setHeight]             = useState(180);
   const [showHeightEdit, setShowHeightEdit] = useState(false);
   const [noteCount, setNoteCount]       = useState(0);
+  const [loaded, setLoaded]             = useState(false);
 
   useEffect(() => {
     const dd = storageGet("sakai:dayData", {});
