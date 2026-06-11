@@ -67,7 +67,7 @@ const ACTIONS = [
   { id:"gym",    label:"筋トレ",         icon:"💪", color:"#C0756A", category:"健康",  minScore:-5, days:"weekday" },
   { id:"swim",   label:"水泳",           icon:"🏊", color:"#4ECDC4", category:"健康",  minScore:-5, days:"sat" },
   { id:"sauna",  label:"サウナ",         icon:"🧖", color:"#C0756A", category:"健康",  minScore:-3, days:"sun" },
-  { id:"sleep",  label:"23時就寝",       icon:"🌙", color:"#8B7FD4", category:"健康",  minScore:-5, days:"all" },
+  { id:"sleep",  label:"0時就寝",        icon:"🌙", color:"#8B7FD4", category:"健康",  minScore:-5, days:"all" },
   { id:"blood",  label:"献血",           icon:"🩸", color:"#C0756A", category:"社会",  minScore:1,  days:"holiday_weekday" },
   { id:"epay",   label:"電子決済まとめ", icon:"💳", color:"#5B9BD5", category:"家計",  minScore:-5, days:"sun" },
 ];
@@ -424,15 +424,20 @@ function ShoppingList({ shopItems, setShopItems }) {
 }
 
 // ─── WorkoutPanel ────────────────────────────────────────────
-function WorkoutPanel() {
+function WorkoutPanel({ onRecord }) {
   const [muscle, setMuscle] = useState("chest");
   const [level, setLevel] = useState(1);
   const [checked, setChecked] = useState({});
+  const [recorded, setRecorded] = useState(false);
   const g = WORKOUT[muscle];
   const menu = g.levels[level];
   const totalSets = menu.sets.reduce((a,s)=>a+s.sets,0);
   const doneSets = Object.values(checked).filter(Boolean).length;
   const toggle = (key) => setChecked(p => ({...p,[key]:!p[key]}));
+  const recordWorkout = () => {
+    onRecord({ muscle, muscleLabel:g.label, level:level+1, levelLabel:menu.label, sets:doneSets, totalSets });
+    setRecorded(true);
+  };
   return (
     <div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
@@ -482,7 +487,19 @@ function WorkoutPanel() {
         ))}
       </div>
       {doneSets>0 && <button onClick={() => setChecked({})} style={{ ...S.btn(false), width:"100%", padding:"8px", fontSize:12 }}>リセット</button>}
-      {doneSets===totalSets&&totalSets>0 && <div style={{ textAlign:"center", padding:"16px 0", fontSize:14, color:"#34D399" }}>🎉 完了！お疲れ様でした</div>}
+      {doneSets===totalSets&&totalSets>0 && (
+        <div style={{ textAlign:"center", padding:"16px 0" }}>
+          <div style={{ fontSize:14, color:"#34D399", marginBottom:10 }}>🎉 完了！お疲れ様でした</div>
+          {!recorded ? (
+            <button onClick={recordWorkout} style={{ ...S.btn(true,"#34D399"), padding:"10px 20px" }}>今日の記録として保存</button>
+          ) : (
+            <div style={{ fontSize:12, color:"#4ECDC4" }}>✓ カレンダーに記録しました</div>
+          )}
+        </div>
+      )}
+      {doneSets>0 && doneSets<totalSets && !recorded && (
+        <button onClick={recordWorkout} style={{ ...S.btn(false), width:"100%", padding:"8px", fontSize:12, marginTop:6 }}>途中でも記録する（{doneSets}/{totalSets}セット）</button>
+      )}
     </div>
   );
 }
@@ -566,10 +583,20 @@ function WeeklyReport({ dayData }) {
 }
 
 // ─── AssetPanel ──────────────────────────────────────────────
-function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
+function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory, dayData }) {
   const [subTab, setSubTab] = useState("current");
   const [editAssets, setEditAssets] = useState({...assets});
   useEffect(() => { setEditAssets({...assets}); }, [assets]);
+
+  // 今月の現金支出集計
+  const thisMonth = `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,"0")}`;
+  const monthExpenses = Object.entries(dayData||{})
+    .filter(([dk]) => dk.startsWith(thisMonth))
+    .flatMap(([dk, dd]) => (dd.expenses||[]).map(e => ({...e, dk})));
+  const expenseTotal = monthExpenses.reduce((sum, e) => {
+    const m = e.label.match(/(\d[\d,]*)円/);
+    return sum + (m ? Number(m[1].replace(/,/g,"")) : 0);
+  }, 0);
   const total = Object.values(editAssets).reduce((a,b)=>a+Number(b||0),0);
   const defPct = Math.min((Number(editAssets.defense)||0)/1000000*100,100);
   const saveSnapshot = () => {
@@ -592,10 +619,29 @@ function AssetPanel({ assets, setAssets, assetHistory, setAssetHistory }) {
   return (
     <div>
       <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
-        {[["current","💰 現在"],["graph","📊 グラフ"],["sim","🔮 シミュレーション"],["history","📅 履歴"]].map(([k,l]) => (
+        {[["current","💰 現在"],["graph","📊 グラフ"],["sim","🔮 シミュレーション"],["history","📅 履歴"],["expense","💸 支出"]].map(([k,l]) => (
           <button key={k} onClick={()=>setSubTab(k)} style={S.btn(subTab===k)}>{l}</button>
         ))}
       </div>
+      {subTab==="expense" && (
+        <div style={S.card}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <div style={{ fontSize:13, color:"#6B7280" }}>今月の現金支出</div>
+            <div style={{ fontSize:20, fontWeight:700, color:"#C0756A" }}>{fmt(expenseTotal)}</div>
+          </div>
+          {monthExpenses.length===0 ? (
+            <div style={{ textAlign:"center", padding:"20px", color:"#6B7280", fontSize:13 }}>今月の支出メモはまだありません</div>
+          ) : (
+            monthExpenses.map(e => (
+              <div key={e.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:"1px solid #2E3448" }}>
+                <div style={{ fontSize:11, color:"#6B7280", width:48, flexShrink:0 }}>{e.dk.slice(5).replace("-","/")}</div>
+                <div style={{ fontSize:13, color:"#D4D8E8" }}>{e.label}</div>
+              </div>
+            ))
+          )}
+          <div style={{ fontSize:10, color:"#6B7280", marginTop:10 }}>※「800円」のように金額を含むメモが自動集計されます</div>
+        </div>
+      )}
       {subTab==="current" && (
         <div style={S.card}>
           <div style={{ fontSize:13, color:"#555", marginBottom:12 }}>口座残高を入力</div>
@@ -725,12 +771,15 @@ function DayDetail({ dk, data, onChange, onClose, height }) {
 
   // 仕訳スコア
   const ledgerChecked = d.ledger||{};
+  const hasLedgerInput = Object.values(ledgerChecked).some(v=>v);
   const totalScore = Object.keys(LEDGER).reduce((acc,period) => {
     const {debit,credit} = LEDGER[period];
     return acc + debit.filter(i=>ledgerChecked[i.id]).reduce((a,b)=>a+b.value,0)
                + credit.filter(i=>ledgerChecked[i.id]).reduce((a,b)=>a+b.value,0);
   },0);
-  const mode = getMode(totalScore);
+  // 未入力なら通常運転扱い（スコア+1）
+  const effectiveScore = hasLedgerInput ? totalScore : 1;
+  const mode = getMode(effectiveScore);
 
   const toggleLedger = (id) => update("ledger", {...ledgerChecked,[id]:!ledgerChecked[id]});
   const toggleAction = (id) => update("actions", {...(d.actions||{}),[id]:!(d.actions||{})[id]});
@@ -758,7 +807,7 @@ function DayDetail({ dk, data, onChange, onClose, height }) {
   };
   const deleteExpense = (id) => update("expenses", (d.expenses||[]).filter(e=>e.id!==id));
 
-  const todayActions = getActionsForDay(dk, dow, totalScore);
+  const todayActions = getActionsForDay(dk, dow, effectiveScore);
 
   // BMI
   const bmi = calcBMI(d.weight, height);
@@ -792,7 +841,24 @@ function DayDetail({ dk, data, onChange, onClose, height }) {
 
         {/* 予定 */}
         {tab==="schedule" && (
-          <div style={S.card}>
+          <div>
+            {(dow===6 || dow===0) && (
+              <div style={{ marginBottom:12 }}>
+                <div style={{ fontSize:11, color:"#6B7280", marginBottom:8 }}>📋 {dow===6?"土":"日"}曜の定例スケジュール</div>
+                {(dow===6 ? SAT_SCHEDULE : SUN_SCHEDULE).map((item,i) => {
+                  const st = TYPE_STYLES[item.type];
+                  return (
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:st.bg, borderLeft:`3px solid ${st.bar}`, borderRadius:"0 4px 4px 0", padding:"8px 10px" }}>
+                      <span style={{ fontSize:10, color:"#6B7280", width:64, flexShrink:0 }}>{item.time}</span>
+                      <span style={{ fontSize:13 }}>{item.icon}</span>
+                      <span style={{ fontSize:12, color:"#D4D8E8" }}>{item.label}</span>
+                      <span style={{ fontSize:10, color:"#6B7280", marginLeft:"auto" }}>{item.sub}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div style={S.card}>
             <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>この日の予定</div>
             {(d.schedule||[]).length===0 && <div style={{ fontSize:13, color:"#333", textAlign:"center", padding:"20px 0" }}>予定なし</div>}
             {(d.schedule||[]).map(s => (
@@ -806,6 +872,7 @@ function DayDetail({ dk, data, onChange, onClose, height }) {
               <input value={newSchedule} onChange={e=>setNewSchedule(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSchedule()} placeholder="予定を書き込む..." style={{ ...S.input, flex:1 }} />
               <button onClick={addSchedule} style={{ ...S.btn(true,"#F5C842"), padding:"8px 14px", flexShrink:0 }}>追加</button>
             </div>
+          </div>
           </div>
         )}
 
@@ -850,7 +917,7 @@ function DayDetail({ dk, data, onChange, onClose, height }) {
         {tab==="routine" && (
           <div>
             <div style={S.card}>
-              <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>仕訳スコア: <span style={{ color:mode.color, fontWeight:700 }}>{totalScore>0?"+":""}{totalScore}</span></div>
+              <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>仕訳スコア: <span style={{ color:mode.color, fontWeight:700 }}>{hasLedgerInput ? (totalScore>0?"+"+totalScore:totalScore) : "未入力（通常扱い）"}</span></div>
               <div style={{ background:`${mode.color}22`, border:`1px solid ${mode.color}44`, borderLeft:`3px solid ${mode.color}`, borderRadius:4, padding:"12px 14px" }}>
                 <div style={{ fontSize:16, fontWeight:700, color:mode.color }}>{mode.label}</div>
                 <div style={{ fontSize:12, color:"#888", marginTop:4 }}>{mode.desc}</div>
@@ -967,7 +1034,7 @@ export default function App() {
   const [shopItems, setShopItems]       = useState(DEFAULT_SHOPPING);
   const [height, setHeight]             = useState(180);
   const [showHeightEdit, setShowHeightEdit] = useState(false);
-  const [loaded, setLoaded]             = useState(false);
+  const [noteCount, setNoteCount]       = useState(0);
 
   useEffect(() => {
     const dd = storageGet("sakai:dayData", {});
@@ -975,7 +1042,8 @@ export default function App() {
     const ah = storageGet("sakai:assetHistory", []);
     const sh = storageGet("sakai:shopping", DEFAULT_SHOPPING);
     const ht = storageGet("sakai:height", 180);
-    setDayData(dd); setAssets(as); setAssetHistory(ah); setShopItems(sh); setHeight(ht);
+    const nc = storageGet("sakai:noteCount", 0);
+    setDayData(dd); setAssets(as); setAssetHistory(ah); setShopItems(sh); setHeight(ht); setNoteCount(nc);
     setLoaded(true);
   }, []);
 
@@ -1020,38 +1088,86 @@ export default function App() {
         </div>
       </div>
 
-      {/* 身長編集 */}
+      {/* 身長編集＋バックアップ */}
       {showHeightEdit && (
-        <div style={{ ...S.card, marginBottom:12, display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ fontSize:12, color:"#555", flexShrink:0 }}>身長 (cm)</div>
-          <input type="number" value={height} onChange={e=>updateHeight(e.target.value)} style={{ ...S.input, flex:1 }} />
-          <button onClick={()=>setShowHeightEdit(false)} style={{ ...S.btn(true,"#34D399"), padding:"8px 12px", flexShrink:0 }}>保存</button>
+        <div style={{ ...S.card, marginBottom:12 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+            <div style={{ fontSize:12, color:"#6B7280", flexShrink:0 }}>身長 (cm)</div>
+            <input type="number" value={height} onChange={e=>updateHeight(e.target.value)} style={{ ...S.input, flex:1 }} />
+            <button onClick={()=>setShowHeightEdit(false)} style={{ ...S.btn(true,"#34D399"), padding:"8px 12px", flexShrink:0 }}>保存</button>
+          </div>
+          <div style={{ borderTop:"1px solid #2E3448", paddingTop:12 }}>
+            <div style={{ fontSize:11, color:"#6B7280", marginBottom:8 }}>📦 データバックアップ</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => {
+                const backup = JSON.stringify({
+                  dayData: storageGet("sakai:dayData",{}),
+                  assets: storageGet("sakai:assets",{}),
+                  assetHistory: storageGet("sakai:assetHistory",[]),
+                  shopping: storageGet("sakai:shopping",[]),
+                  height: storageGet("sakai:height",180),
+                });
+                navigator.clipboard.writeText(backup).then(() => alert("バックアップをコピーしました。メモアプリに貼り付けて保存してください。"));
+              }} style={{ ...S.btn(true,"#5B9BD5"), flex:1, padding:"8px" }}>エクスポート</button>
+              <button onClick={() => {
+                const text = prompt("バックアップのテキストを貼り付けてください");
+                if (!text) return;
+                try {
+                  const b = JSON.parse(text);
+                  if (b.dayData) storageSet("sakai:dayData", b.dayData);
+                  if (b.assets) storageSet("sakai:assets", b.assets);
+                  if (b.assetHistory) storageSet("sakai:assetHistory", b.assetHistory);
+                  if (b.shopping) storageSet("sakai:shopping", b.shopping);
+                  if (b.height) storageSet("sakai:height", b.height);
+                  alert("復元しました。ページを更新してください。");
+                  window.location.reload();
+                } catch { alert("形式が正しくありません"); }
+              }} style={{ ...S.btn(false), flex:1, padding:"8px" }}>インポート</button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 今日のテーマ（カレンダータブのみ） */}
+      {/* note進捗カウンター */}
       {mainTab==="calendar" && (
-        <div style={{ background:"#111", border:"1px solid #1A1A1A", borderLeft:"3px solid #A78BFA", borderRadius:4, padding:"10px 14px", marginBottom:12 }}>
-          <div style={{ fontSize:10, color:"#A78BFA", marginBottom:3 }}>今日のテーマ</div>
-          <div style={{ fontSize:13, color:"#E8E8E0" }}>「{getDailyTheme(todayKey)}」</div>
+        <div style={{ ...S.card, marginBottom:12 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+            <div style={{ fontSize:12, color:"#6B7280" }}>✍️ note進捗</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <button onClick={() => { const n = Math.max(0,(noteCount||0)-1); setNoteCount(n); storageSet("sakai:noteCount",n); }} style={{ ...S.btn(false), padding:"2px 8px", fontSize:16 }}>−</button>
+              <div style={{ fontSize:20, fontWeight:700, color:"#C4973A" }}>{noteCount||0}<span style={{ fontSize:12, color:"#6B7280", fontWeight:400 }}>/100</span></div>
+              <button onClick={() => { const n = Math.min(100,(noteCount||0)+1); setNoteCount(n); storageSet("sakai:noteCount",n); }} style={{ ...S.btn(true,"#C4973A"), padding:"2px 8px", fontSize:16 }}>+</button>
+            </div>
+          </div>
+          <div style={{ background:"#2E3448", borderRadius:20, height:6 }}>
+            <div style={{ width:`${(noteCount||0)}%`, height:"100%", background:"#C4973A", borderRadius:20, transition:"width .3s" }} />
+          </div>
+        </div>
+      )}
+      {mainTab==="calendar" && (
+        <div style={{ background:"#242938", border:"1px solid #2E3448", borderLeft:"3px solid #8B7FD4", borderRadius:4, padding:"10px 14px", marginBottom:12 }}>
+          <div style={{ fontSize:10, color:"#8B7FD4", marginBottom:3 }}>今日のテーマ</div>
+          <div style={{ fontSize:13, color:"#D4D8E8" }}>「{getDailyTheme(todayKey)}」</div>
         </div>
       )}
 
       {/* メインタブ */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr", gap:4, marginBottom:16 }}>
-        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"],["weekend","📋"]].map(([k,icon]) => (
-          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:16, padding:"8px 0" }}>{icon}</button>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr", gap:4, marginBottom:16 }}>
+        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"]].map(([k,icon]) => (
+          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:18, padding:"8px 0" }}>{icon}</button>
         ))}
       </div>
       <div style={{ fontSize:12, color:"#6B7280", marginBottom:12 }}>
-        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト","weekend":"📋 週末スケジュール"}[mainTab]}
+        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト"}[mainTab]}
       </div>
 
       {mainTab==="shopping" && <ShoppingList shopItems={shopItems} setShopItems={setShopItems} />}
-      {mainTab==="workout"  && <WorkoutPanel />}
+      {mainTab==="workout"  && <WorkoutPanel onRecord={(rec) => {
+        const dd = dayData[todayKey]||{};
+        updateDay(todayKey, {...dd, workout:rec, actions:{...(dd.actions||{}), gym:true}});
+      }} />}
       {mainTab==="report"   && <WeeklyReport dayData={dayData} />}
-      {mainTab==="assets"   && <AssetPanel assets={assets} setAssets={setAssets} assetHistory={assetHistory} setAssetHistory={setAssetHistory} />}
-      {mainTab==="weekend"  && <WeekendSchedule />}
+      {mainTab==="assets"   && <AssetPanel assets={assets} setAssets={setAssets} assetHistory={assetHistory} setAssetHistory={setAssetHistory} dayData={dayData} />}
 
       {mainTab==="calendar" && (
         <>
