@@ -358,6 +358,247 @@ function WeekendSchedule() {
   );
 }
 
+// ─── StatusPanel ─────────────────────────────────────────────
+const SELF_AXES = [
+  { key:"verbal",   label:"言語化",    jp:"Verbalization" },
+  { key:"mental",   label:"メンタル防御", jp:"Mental Defense" },
+  { key:"meta",     label:"メタ認知",  jp:"Metacognition" },
+  { key:"ego",      label:"自我",      jp:"Ego" },
+  { key:"physical", label:"身体",      jp:"Physical" },
+  { key:"output",   label:"行動力",    jp:"Output" },
+];
+const KANJIN_AXES = [
+  { key:"shiki", label:"識", jp:"知恵・判断" },
+  { key:"shi",   label:"志", jp:"価値観・芯" },
+  { key:"hen",   label:"変", jp:"窮地の対応" },
+  { key:"yuu",   label:"勇", jp:"立ち向かう勇気" },
+  { key:"sei",   label:"性", jp:"素の性格" },
+  { key:"ren",   label:"廉", jp:"誘惑への節操" },
+  { key:"shin",  label:"信", jp:"約束・信頼" },
+];
+
+function Radar({ axes, values, color="#2DD4BF", size=300 }) {
+  const cx=size/2, cy=size/2, radius=size*0.32, n=axes.length;
+  const angle=(i)=>(Math.PI*2*i)/n - Math.PI/2;
+  const point=(i,r)=>[cx+Math.cos(angle(i))*radius*(r/100), cy+Math.sin(angle(i))*radius*(r/100)];
+  const polygon=values.map((v,i)=>point(i,v).join(",")).join(" ");
+  return (
+    <svg width={size} height={size} style={{ display:"block", margin:"0 auto" }}>
+      {[20,40,60,80,100].map(r=>(<polygon key={r} points={axes.map((_,i)=>point(i,r).join(",")).join(" ")} fill="none" stroke="#1F2937" strokeWidth={1}/>))}
+      {axes.map((_,i)=>{ const [x,y]=point(i,100); return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#1F2937" strokeWidth={1}/>; })}
+      <polygon points={polygon} fill={`${color}44`} stroke={color} strokeWidth={2}/>
+      {values.map((v,i)=>{ const [x,y]=point(i,v); return <circle key={i} cx={x} cy={y} r={3} fill={color}/>; })}
+      {axes.map((ax,i)=>{ const [x,y]=point(i,124); return <text key={i} x={x} y={y} fontSize={10} fill={color} textAnchor={Math.abs(x-cx)<10?"middle":x>cx?"start":"end"} dominantBaseline="middle">{ax.label}</text>; })}
+    </svg>
+  );
+}
+
+function StatSlider({ label, jp, value, onChange, color }) {
+  return (
+    <div style={{ marginBottom:12 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+        <span style={{ fontSize:13, color:"#D4D8E8" }}>{label} <span style={{ fontSize:10, color:"#6B7280" }}>{jp}</span></span>
+        <span style={{ fontSize:13, color, fontWeight:700 }}>{value}</span>
+      </div>
+      <input type="range" min={0} max={100} value={value} onChange={e=>onChange(parseInt(e.target.value,10))} style={{ width:"100%", accentColor:color }}/>
+    </div>
+  );
+}
+
+function StatusPanel() {
+  const [statTab, setStatTab] = useState("self");
+  const [selfVals, setSelfVals] = useState(() => storageGet("sakai:selfVals", { verbal:95, mental:85, meta:90, ego:70, physical:65, output:45 }));
+  const [people, setPeople] = useState(() => storageGet("sakai:people", []));
+  const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+
+  const saveSelf = (v) => { setSelfVals(v); storageSet("sakai:selfVals", v); };
+  const total = (vals) => Object.values(vals).reduce((a,b)=>a+b,0);
+  const blank = () => ({ id:`p_${Date.now()}`, name:"", note:"", vals:{ shiki:50, shi:50, hen:50, yuu:50, sei:50, ren:50, shin:50 } });
+  const savePerson = (p) => {
+    setPeople(prev => {
+      const next = prev.find(x=>x.id===p.id) ? prev.map(x=>x.id===p.id?p:x) : [...prev, p];
+      storageSet("sakai:people", next); return next;
+    });
+    setEditing(null); setViewing(null);
+  };
+  const delPerson = (id) => {
+    setPeople(prev => { const next=prev.filter(x=>x.id!==id); storageSet("sakai:people",next); return next; });
+    setViewing(null);
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+        <button onClick={()=>{ setStatTab("self"); setEditing(null); setViewing(null); }} style={{ ...S.btn(statTab==="self","#2DD4BF"), fontWeight:700 }}>自分</button>
+        <button onClick={()=>{ setStatTab("codex"); setEditing(null); setViewing(null); }} style={{ ...S.btn(statTab==="codex","#2DD4BF"), fontWeight:700 }}>人物図鑑（七法）</button>
+      </div>
+
+      {statTab==="self" && (
+        <div>
+          <div style={{ fontSize:11, color:"#6B7280", marginBottom:12 }}>能力ステータス　合計 {total(selfVals)}</div>
+          <div style={{ background:"#1A1F2E", borderRadius:12, padding:"16px 0", marginBottom:16 }}>
+            <Radar axes={SELF_AXES} values={SELF_AXES.map(a=>selfVals[a.key])} color="#2DD4BF"/>
+          </div>
+          {SELF_AXES.map(ax=><StatSlider key={ax.key} label={ax.label} jp={ax.jp} value={selfVals[ax.key]} color="#2DD4BF" onChange={v=>saveSelf({...selfVals,[ax.key]:v})}/>)}
+        </div>
+      )}
+
+      {statTab==="codex" && !editing && !viewing && (
+        <div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+            <div style={{ fontSize:12, color:"#6B7280" }}>登録 {people.length}人</div>
+            <button onClick={()=>setEditing(blank())} style={{ ...S.btn(true,"#C4973A"), padding:"7px 14px" }}>＋ 追加</button>
+          </div>
+          {people.length===0 ? (
+            <div style={{ textAlign:"center", padding:"40px 20px", color:"#6B7280", fontSize:13, lineHeight:1.8 }}>まだ誰も登録されていません。<br/>気になる人を七法で鑑定しましょう。</div>
+          ) : (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              {people.map(p=>(
+                <div key={p.id} onClick={()=>setViewing(p)} style={{ background:"#1A1F2E", border:"1px solid #2E3448", borderRadius:10, padding:10, cursor:"pointer" }}>
+                  <Radar axes={KANJIN_AXES} values={KANJIN_AXES.map(a=>p.vals[a.key])} color="#C4973A" size={120}/>
+                  <div style={{ fontSize:12, fontWeight:700, color:"#D4D8E8", marginTop:6, textAlign:"center" }}>{p.name||"名無し"}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {statTab==="codex" && viewing && !editing && (
+        <div>
+          <button onClick={()=>setViewing(null)} style={{ ...S.btn(false), padding:"6px 12px", marginBottom:14 }}>← 図鑑に戻る</button>
+          <div style={{ fontSize:18, fontWeight:700, color:"#C4973A", marginBottom:12 }}>{viewing.name||"名無し"}</div>
+          <div style={{ background:"#1A1F2E", borderRadius:12, padding:"16px 0", marginBottom:14 }}>
+            <Radar axes={KANJIN_AXES} values={KANJIN_AXES.map(a=>viewing.vals[a.key])} color="#C4973A"/>
+          </div>
+          {KANJIN_AXES.map(ax=>(
+            <div key={ax.key} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:"1px solid #2E3448" }}>
+              <span style={{ fontSize:12, color:"#D4D8E8" }}><span style={{ color:"#C4973A", fontWeight:700 }}>{ax.label}</span> {ax.jp}</span>
+              <span style={{ fontSize:13, color:"#C4973A", fontWeight:700 }}>{viewing.vals[ax.key]}</span>
+            </div>
+          ))}
+          {viewing.note && <div style={{ marginTop:12, background:"#1A1F2E", borderRadius:8, padding:12, fontSize:12, color:"#6B7280", lineHeight:1.7 }}>{viewing.note}</div>}
+          <div style={{ display:"flex", gap:8, marginTop:16 }}>
+            <button onClick={()=>setEditing(viewing)} style={{ ...S.btn(true,"#2DD4BF"), flex:1, padding:"10px" }}>編集</button>
+            <button onClick={()=>delPerson(viewing.id)} style={{ ...S.btn(false), padding:"10px 16px" }}>削除</button>
+          </div>
+        </div>
+      )}
+
+      {statTab==="codex" && editing && (
+        <div>
+          <input value={editing.name} onChange={e=>setEditing({...editing,name:e.target.value})} placeholder="名前" style={{ ...S.input, marginBottom:14 }}/>
+          <div style={{ background:"#1A1F2E", borderRadius:12, padding:"12px 0", marginBottom:14 }}>
+            <Radar axes={KANJIN_AXES} values={KANJIN_AXES.map(a=>editing.vals[a.key])} color="#C4973A" size={240}/>
+          </div>
+          {KANJIN_AXES.map(ax=><StatSlider key={ax.key} label={ax.label} jp={ax.jp} value={editing.vals[ax.key]} color="#C4973A" onChange={v=>setEditing({...editing,vals:{...editing.vals,[ax.key]:v}})}/>)}
+          <textarea value={editing.note} onChange={e=>setEditing({...editing,note:e.target.value})} placeholder="メモ（この人の特徴・気づき）" style={{ ...S.input, minHeight:70, resize:"vertical", marginTop:8, marginBottom:14, lineHeight:1.6 }}/>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={()=>savePerson(editing)} style={{ ...S.btn(true,"#2DD4BF"), flex:1, padding:"12px" }}>保存</button>
+            <button onClick={()=>setEditing(null)} style={{ ...S.btn(false), padding:"12px 18px" }}>キャンセル</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CouragePanel ─────────────────────────────────────────────
+const COURAGE_RANKS = [
+  { key:"small", label:"雑魚敵", exp:2,  color:"#94A3B8", desc:"店員に話しかける／意見を一つ言う／少し多く開示する" },
+  { key:"mid",   label:"中ボス", exp:8,  color:"#C4973A", desc:"誰かを誘う／苦手な人に向き合う／断る／本音を伝える" },
+  { key:"big",   label:"大ボス", exp:35, color:"#FF6B6B", desc:"告白する／独立を決める／人前で素を晒す" },
+];
+
+function levelFromExp(exp) {
+  let lv=1, need=10, total=0;
+  while (exp >= total+need && lv<100) { total+=need; lv++; need=Math.round(need*1.4); }
+  return { lv, cur:exp-total, need };
+}
+
+function CouragePanel() {
+  const [logs, setLogs] = useState(() => storageGet("sakai:courage", []));
+  const [adding, setAdding] = useState(null);
+  const [memo, setMemo] = useState("");
+
+  const totalExp = logs.reduce((a,b)=>a+b.exp, 0);
+  const { lv, cur, need } = levelFromExp(totalExp);
+  const today = `${TODAY.getMonth()+1}/${TODAY.getDate()}`;
+  const todayCount = logs.filter(l=>l.date===today).length;
+
+  const addLog = (rank) => {
+    const entry = { id:Date.now(), rank:rank.key, label:rank.label, exp:rank.exp, color:rank.color, memo, date:today };
+    const next = [entry, ...logs];
+    setLogs(next); storageSet("sakai:courage", next); setAdding(null); setMemo("");
+  };
+  const delLog = (id) => { const next=logs.filter(l=>l.id!==id); setLogs(next); storageSet("sakai:courage",next); };
+
+  return (
+    <div>
+      <div style={{ background:"linear-gradient(135deg, #1a2e35, #1A1F2E)", border:"1px solid #2DD4BF44", borderRadius:12, padding:18, marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:10 }}>
+          <div>
+            <div style={{ fontSize:10, color:"#2DD4BF", letterSpacing:"0.15em" }}>勇気レベル</div>
+            <div style={{ fontSize:36, fontWeight:800, color:"#2DD4BF", lineHeight:1 }}>Lv.{lv}</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:11, color:"#6B7280" }}>累計EXP {totalExp}</div>
+            <div style={{ fontSize:11, color:"#6B7280" }}>今日 {todayCount}回 / 挑戦 {logs.length}回</div>
+          </div>
+        </div>
+        <div style={{ height:8, background:"#2E3448", borderRadius:4, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:`${(cur/need)*100}%`, background:"#2DD4BF", borderRadius:4 }}/>
+        </div>
+        <div style={{ fontSize:10, color:"#6B7280", marginTop:4, textAlign:"right" }}>次のレベルまで {need-cur} EXP</div>
+      </div>
+
+      {!adding ? (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:11, color:"#6B7280", marginBottom:10 }}>怖いことに挑んだら記録（勇気＝言う気）</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {COURAGE_RANKS.map(r=>(
+              <button key={r.key} onClick={()=>setAdding(r)} style={{ background:"#1A1F2E", border:`1px solid ${r.color}44`, borderLeft:`3px solid ${r.color}`, borderRadius:8, padding:"12px 14px", cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:r.color }}>{r.label}</span>
+                  <span style={{ fontSize:12, color:r.color }}>+{r.exp} EXP</span>
+                </div>
+                <div style={{ fontSize:10, color:"#6B7280", marginTop:3 }}>{r.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ background:"#1A1F2E", border:`1px solid ${adding.color}44`, borderRadius:10, padding:14, marginBottom:16 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:adding.color, marginBottom:8 }}>{adding.label}を撃破　+{adding.exp} EXP</div>
+          <input value={memo} onChange={e=>setMemo(e.target.value)} placeholder="何に挑んだ？（任意）" style={{ ...S.input, marginBottom:10 }}/>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={()=>addLog(adding)} style={{ ...S.btn(true,adding.color), flex:1, padding:"10px" }}>記録する</button>
+            <button onClick={()=>{ setAdding(null); setMemo(""); }} style={{ ...S.btn(false), padding:"10px 16px" }}>戻る</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize:11, color:"#6B7280", marginBottom:8 }}>撃破ログ</div>
+      {logs.length===0 ? (
+        <div style={{ textAlign:"center", padding:"30px", color:"#6B7280", fontSize:13 }}>まだ記録がありません。<br/>小さな勇気から、経験値を積もう。</div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          {logs.map(l=>(
+            <div key={l.id} style={{ display:"flex", alignItems:"center", gap:10, background:"#1A1F2E", border:"1px solid #2E3448", borderLeft:`3px solid ${l.color}`, borderRadius:6, padding:"9px 12px" }}>
+              <span style={{ fontSize:11, color:"#6B7280", minWidth:34 }}>{l.date}</span>
+              <span style={{ fontSize:12, color:l.color, fontWeight:700, minWidth:44 }}>{l.label}</span>
+              <span style={{ flex:1, fontSize:12, color:"#D4D8E8" }}>{l.memo||"—"}</span>
+              <span style={{ fontSize:11, color:l.color }}>+{l.exp}</span>
+              <button onClick={()=>delLog(l.id)} style={{ background:"transparent", border:"none", color:"#6B7280", cursor:"pointer", fontSize:12 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ShoppingList ────────────────────────────────────────────
 const DEFAULT_SHOPPING = [
   { id:"s1", label:"鶏むね肉",     category:"肉・魚", fixed:true },
@@ -1153,13 +1394,13 @@ export default function App() {
       )}
 
       {/* メインタブ */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr", gap:4, marginBottom:16 }}>
-        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"]].map(([k,icon]) => (
-          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:18, padding:"8px 0" }}>{icon}</button>
+      <div style={{ display:"flex", gap:4, marginBottom:8, overflowX:"auto" }}>
+        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"],["status","📊"],["courage","⚔️"]].map(([k,icon]) => (
+          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:18, padding:"8px 10px", flexShrink:0 }}>{icon}</button>
         ))}
       </div>
       <div style={{ fontSize:12, color:"#6B7280", marginBottom:12 }}>
-        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト"}[mainTab]}
+        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト","status":"📊 ステータス","courage":"⚔️ 勇気ログ"}[mainTab]}
       </div>
 
       {mainTab==="shopping" && <ShoppingList shopItems={shopItems} setShopItems={setShopItems} />}
@@ -1169,6 +1410,8 @@ export default function App() {
       }} />}
       {mainTab==="report"   && <WeeklyReport dayData={dayData} />}
       {mainTab==="assets"   && <AssetPanel assets={assets} setAssets={setAssets} assetHistory={assetHistory} setAssetHistory={setAssetHistory} dayData={dayData} />}
+      {mainTab==="status"   && <StatusPanel />}
+      {mainTab==="courage"  && <CouragePanel />}
 
       {mainTab==="calendar" && (
         <>
