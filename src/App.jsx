@@ -761,6 +761,8 @@ function WeeklyReport({ dayData }) {
   const sorted = ACTIONS.map(a => ({...a, count:actionCounts[a.id]})).sort((a,b)=>b.count-a.count);
   const mvp = sorted[0]; const worst = sorted[sorted.length-1];
   const weightPoints = days.map(dk => ({ dk, w:dayData[dk]?.weight })).filter(p=>p.w);
+  const fatPoints    = days.map(dk => ({ dk, f:dayData[dk]?.bodyFat })).filter(p=>p.f);
+  const workoutDays  = days.map(dk => ({ dk, rec:dayData[dk]?.workout })).filter(p=>p.rec);
   return (
     <div>
       {weightPoints.length >= 2 && (
@@ -788,6 +790,56 @@ function WeeklyReport({ dayData }) {
               </span>
             )}
             <span>{weightPoints[weightPoints.length-1]?.w}kg</span>
+          </div>
+        </div>
+      )}
+      {fatPoints.length >= 2 && (
+        <div style={S.card}>
+          <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>今週の体脂肪率推移</div>
+          <svg width="100%" viewBox="0 0 300 80" style={{ display:"block", marginBottom:6 }}>
+            {(() => {
+              const vals=fatPoints.map(p=>p.f);
+              const mn=Math.max(0,Math.min(...vals)-1), mx=Math.max(...vals)+1, range=mx-mn||1;
+              const px=(i)=>(i/(fatPoints.length-1))*270+15;
+              const py=(v)=>70-((v-mn)/range)*55;
+              const pts=fatPoints.map((p,i)=>`${px(i)},${py(p.f)}`).join(" ");
+              const goalY = py(10);
+              return (<>
+                {goalY >= 0 && goalY <= 70 && <line x1="15" y1={goalY} x2="285" y2={goalY} stroke="#34D39955" strokeWidth="1" strokeDasharray="3,3"/>}
+                <polyline points={pts} fill="none" stroke="#FF6B6B" strokeWidth="2"/>
+                {fatPoints.map((p,i)=>(<g key={i}><circle cx={px(i)} cy={py(p.f)} r="3" fill="#FF6B6B"/><text x={px(i)} y={py(p.f)-6} textAnchor="middle" fontSize="8" fill="#FF6B6B">{p.f}%</text></g>))}
+                <line x1="15" y1="70" x2="285" y2="70" stroke="#1A1A1A" strokeWidth="1"/>
+                <text x="17" y={goalY-3} fontSize="7" fill="#34D399">目標10%</text>
+              </>);
+            })()}
+          </svg>
+          <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"#555" }}>
+            <span>{fatPoints[0]?.f}%</span>
+            {fatPoints[fatPoints.length-1]?.f !== fatPoints[0]?.f && (
+              <span style={{ color:fatPoints[fatPoints.length-1].f < fatPoints[0].f ? "#34D399" : "#FF6B6B" }}>
+                {(fatPoints[fatPoints.length-1].f - fatPoints[0].f).toFixed(1)}%
+              </span>
+            )}
+            <span>{fatPoints[fatPoints.length-1]?.f}%</span>
+          </div>
+        </div>
+      )}
+      {workoutDays.length > 0 && (
+        <div style={S.card}>
+          <div style={{ fontSize:12, color:"#555", marginBottom:10 }}>今週の筋トレ記録</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {workoutDays.map(({dk, rec}) => {
+              const d = new Date(dk.replace(/-/g,"/"));
+              return (
+                <div key={dk} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:"1px solid #2E3448" }}>
+                  <div style={{ fontSize:11, color:"#6B7280", width:40, flexShrink:0 }}>{d.getMonth()+1}/{d.getDate()}</div>
+                  <div style={{ fontSize:16 }}>{WORKOUT[rec.muscle]?.icon}</div>
+                  <div style={{ fontSize:13, color:"#D4D8E8", flex:1 }}>{rec.muscleLabel}</div>
+                  <div style={{ fontSize:11, color:WORKOUT[rec.muscle]?.color }}>{rec.levelLabel}</div>
+                  <div style={{ fontSize:11, color:"#6B7280" }}>{rec.sets}/{rec.totalSets}set</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1445,6 +1497,7 @@ export default function App() {
               const hasSchedule = (dd.schedule||[]).length>0;
               const hasMemo = !!dd.memo;
               const hasAction = Object.values(dd.actions||{}).some(v=>v);
+              const workoutRec = dd.workout;
               const accent = dow===0||isHol ? "#FF6B6B" : dow===6 ? "#378ADD" : "#2A2A2A";
               return (
                 <div key={dk} onClick={()=>setSelectedDay(dk)} style={{ background:isT?"#F5C84222":"#111", border:`1px solid ${isT?"#F5C842":"#1A1A1A"}`, borderRadius:4, padding:"5px 0", cursor:"pointer", position:"relative", minHeight:44, display:"flex", flexDirection:"column", alignItems:"center" }}>
@@ -1454,6 +1507,7 @@ export default function App() {
                   {hasMemo     && <div style={{ position:"absolute", top:3, right:3, width:4, height:4, borderRadius:"50%", background:"#B5D4F4" }} />}
                   {hasAction   && <div style={{ position:"absolute", bottom:3, right:3, fontSize:8, color:"#34D399" }}>✓</div>}
                   {isHol       && <div style={{ position:"absolute", bottom:3, left:3, fontSize:8 }}>🎌</div>}
+                  {workoutRec  && !isHol && <div style={{ position:"absolute", bottom:3, left:3, fontSize:9 }}>{WORKOUT[workoutRec.muscle]?.icon}</div>}
                 </div>
               );
             })}
