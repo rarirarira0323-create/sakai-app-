@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── Storage ─────────────────────────────────────────────────
 const storageGet = (key, fallback) => {
@@ -596,6 +596,412 @@ function CouragePanel() {
   );
 }
 
+// ─── MealPanel ───────────────────────────────────────────────
+const MEAL_MATRIX = {
+  sources: ["鶏むね", "鶏もも", "豚もも/ヒレ", "魚（鮭/鯖）", "卵", "豆腐/大豆", "赤身挽肉"],
+  methods: ["焼く", "蒸す", "煮る", "低温", "ポワレ", "あんかけ", "炒める"],
+  cells: [
+    ["塩麹焼き",    "酒蒸し/よだれ鶏", "治部煮風",   "鶏ハム",  "ポワレ",      "甘酢あん",     "チンジャオ"],
+    ["照り焼き",    "酒蒸し",           "筑前煮",     "—",       "皮パリポワレ", "油淋鶏だれ",   "回鍋鶏"],
+    ["生姜焼き",    "蒸し豚",           "大根と煮物", "—",       "—",           "—",            "回鍋肉"],
+    ["塩焼き",      "アクアパッツァ",   "鯖の味噌煮", "—",       "ムニエル",    "あんかけ",     "鮭ちゃんちゃん"],
+    ["だし巻き",    "茶碗蒸し",         "—",          "温泉卵",  "—",           "かに玉",       "スクランブル"],
+    ["厚揚げ焼き",  "—",               "肉豆腐",      "—",       "—",           "豆腐挽肉あん", "—"],
+    ["豆腐ハンバーグ/餃子", "シュウマイ", "水餃子",   "—",       "—",           "そぼろあん",   "麻婆豆腐"],
+  ],
+  stars: [[1,3,5,6],[0,4],[0,2],[0,2,4,6],[1],[5],[0,2,6]],
+};
+
+const MEALS = {
+  wa: {
+    label:"和", color:"#4ECDC4",
+    items:[
+      { method:"蒸す", name:"鶏むねの酒蒸し よだれ鶏風", side:"ほうれん草のナムル", protein:"約40g", fat:"低", tip:"酒を振って蒸すだけ。たれは醤油・酢・ごま油・すりごま。", tags:["高齢者◎","高P低脂"] },
+      { method:"低温", name:"自家製 鶏ハム", side:"焼き野菜のマリネ", protein:"約45g", fat:"最低", tip:"沸騰湯に入れて火を止め余熱で通す。作り置き可。", tags:["高P低脂"] },
+      { method:"煮る", name:"鯖の味噌煮", side:"冷奴と小松菜のおひたし", protein:"約35g", fat:"良質", tip:"青魚の良質な脂とタンパク質を一度に。生姜で臭みを消す。", tags:["高齢者◎"] },
+      { method:"蒸す・卵", name:"具沢山の茶碗蒸し", side:"鶏・海老を入れれば主菜級", protein:"15〜25g", fat:"低", tip:"喉ごしが良く高齢のご家族に最適。弱火でゆっくり。", tags:["高齢者◎"] },
+    ]
+  },
+  yo: {
+    label:"洋", color:"#C0756A",
+    items:[
+      { method:"ポワレ", name:"鮭のムニエル", side:"グリーンサラダ／温野菜", protein:"約35g", fat:"良質", tip:"薄力粉をまとわせバターで焼く。脂をすくいかけて火入れ。レモンで酸を足す。", tags:[] },
+      { method:"焼く・挽肉", name:"豆腐ハンバーグ", side:"コンソメ野菜スープ", protein:"約35g", fat:"中", tip:"合挽きに豆腐を混ぜ高P低脂に。多めに焼いて冷凍可。", tags:["高齢者◎"] },
+      { method:"蒸し煮", name:"白身魚のアクアパッツァ", side:"バゲット少々／ブロッコリー", protein:"約35g", fat:"低", tip:"魚とあさりを水と油で蒸し煮。うま味が出汁になり調味は塩だけ。", tags:["高齢者◎","高P低脂"] },
+      { method:"焼く・卵衣", name:"鶏むねのピカタ", side:"トマトとレタスのサラダ", protein:"約45g", fat:"中", tip:"薄切り鶏むねに卵衣。衣が水分を守りパサつかせない。鶏むね＋卵で二重にP。", tags:["高P低脂"] },
+    ]
+  },
+  chu: {
+    label:"中", color:"#FF6B6B",
+    items:[
+      { method:"焼く/茹でる", name:"手作り餃子", side:"もやしのナムル／わかめスープ", protein:"30〜40g", fat:"中", tip:"鶏むね餡なら低脂質。水餃子にすれば油が減り高齢者に優しい。", tags:["得意料理","高齢者◎"] },
+      { method:"あんかけ", name:"豆腐と挽肉のあんかけ", side:"中華風スープ／冷やしトマト", protein:"約30g", fat:"中", tip:"麻婆の辛くない版。辣油を足せば自分用に化ける。", tags:["高齢者◎"] },
+      { method:"炒める", name:"回鍋肉", side:"わかめスープ", protein:"約30g", fat:"中", tip:"豚もとキャベツをたっぷり。調味料を先に合わせ強火で一気に。", tags:[] },
+      { method:"炒める・海老", name:"エビチリ（マイルド）", side:"中華風春雨サラダ", protein:"約30g", fat:"低", tip:"豆板醤を控えれば全員向け。片栗で海老を守る。", tags:["高P低脂"] },
+      { method:"蒸す", name:"肉シュウマイ", side:"青梗菜のオイスター炒め", protein:"約30g", fat:"中", tip:"油を使わず仕上がる。多めに作って冷凍すれば平日の一品にも。", tags:["高齢者◎"] },
+    ]
+  },
+  quick: {
+    label:"時短", color:"#C4973A",
+    items:[
+      { method:"炒め蒸し・15分", name:"鮭のちゃんちゃん焼き", side:"味噌汁で完結", protein:"約30g", fat:"中", tip:"鮭とキャベツを味噌だれで炒め蒸し。フライパン一つで主菜と野菜が同時。", tags:["高齢者◎"] },
+      { method:"包んで焼く・20分", name:"鮭のホイル焼き", side:"冷奴／おひたし", protein:"約30g", fat:"低", tip:"洗い物ほぼゼロ。蒸し焼きでしっとり仕上がり油もいらない。", tags:["高齢者◎","高P低脂"] },
+      { method:"炒める・10分", name:"豚こまと野菜の炒め 味変3種", side:"オイスター／塩だれ／味噌", protein:"約25g", fat:"中", tip:"たれを替えるだけで三日違う顔に。同じ手順で味だけ回す省力術。", tags:[] },
+      { method:"炒める・10分", name:"豚キムチ", side:"卵スープ／もやしナムル", protein:"約25g", fat:"中", tip:"発酵食品で腸にも良い。卵を落とせばタンパク質増。10分で高Pが成立。", tags:[] },
+    ]
+  },
+};
+
+function MealPanel() {
+  const [view, setView] = useState("cards");
+  const [filter, setFilter] = useState("all");
+
+  const TAG_COLORS = { "高齢者◎":"#4ECDC4", "高P低脂":"#34D399", "得意料理":"#C4973A" };
+
+  return (
+    <div>
+      {/* タンパク質目標 */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:6, marginBottom:12 }}>
+        {[["1日目安","160g P"],["朝（固定）","約41g"],["昼＋夜で","約119g"],["夕飯主菜","30〜45g"]].map(([k,v])=>(
+          <div key={k} style={{ ...S.card, padding:"10px 12px", marginBottom:0 }}>
+            <div style={{ fontSize:9, color:"#C4973A", letterSpacing:"0.1em", marginBottom:3 }}>{k}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:"#D4D8E8" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 朝食固定 */}
+      <div style={{ background:"#242938", border:"1px solid #2E3448", borderLeft:"3px solid #C4973A", borderRadius:6, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#6B7280" }}>
+        <div style={{ fontSize:10, color:"#C4973A", letterSpacing:"0.1em", marginBottom:4 }}>朝食は固定 ― 約41g・変更不要</div>
+        全粒粉トースト＋バター / オイコス＋バナナ・ベリー / 青汁豆乳プロテイン / ゆで卵 / ブラックコーヒー
+      </div>
+
+      {/* ビュー切り替え */}
+      <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+        <button onClick={()=>setView("cards")} style={{ ...S.btn(view==="cards"), flex:1 }}>🍽️ メニュー</button>
+        <button onClick={()=>setView("matrix")} style={{ ...S.btn(view==="matrix"), flex:1 }}>📊 掛け算表</button>
+      </div>
+
+      {view==="matrix" && (
+        <div style={{ ...S.card, overflowX:"auto" }}>
+          <div style={{ fontSize:11, color:"#6B7280", marginBottom:10 }}>源 × 調理法の掛け算表　★＝入口として最適</div>
+          <table style={{ borderCollapse:"collapse", fontSize:10, minWidth:600 }}>
+            <thead>
+              <tr>
+                <th style={{ background:"#2E3448", color:"#D4D8E8", padding:"6px 8px", textAlign:"left", border:"1px solid #3A4060", whiteSpace:"nowrap" }}>源 ＼ 法</th>
+                {MEAL_MATRIX.methods.map(m=>(<th key={m} style={{ background:"#2E3448", color:"#D4D8E8", padding:"6px 8px", border:"1px solid #3A4060", whiteSpace:"nowrap" }}>{m}</th>))}
+              </tr>
+            </thead>
+            <tbody>
+              {MEAL_MATRIX.sources.map((src,si)=>(
+                <tr key={si}>
+                  <td style={{ background:"#1A1F2E", color:"#D4D8E8", padding:"6px 8px", border:"1px solid #3A4060", fontWeight:700, whiteSpace:"nowrap" }}>{src}</td>
+                  {MEAL_MATRIX.cells[si].map((cell,ci)=>(
+                    <td key={ci} style={{ padding:"6px 8px", border:"1px solid #3A4060", color: MEAL_MATRIX.stars[si].includes(ci) ? "#C4973A" : "#6B7280", fontWeight: MEAL_MATRIX.stars[si].includes(ci) ? 700 : 400, whiteSpace:"nowrap" }}>
+                      {MEAL_MATRIX.stars[si].includes(ci) ? "★" : ""}{cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {view==="cards" && (
+        <div>
+          <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
+            {[["all","すべて"],["wa","和"],["yo","洋"],["chu","中"],["quick","時短"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setFilter(k)} style={{ ...S.btn(filter===k, k==="all"?"#5B9BD5":MEALS[k]?.color||"#5B9BD5"), fontSize:11, padding:"5px 10px" }}>{l}</button>
+            ))}
+          </div>
+          {Object.entries(MEALS).filter(([k])=>filter==="all"||filter===k).map(([k,cat])=>(
+            <div key={k}>
+              <div style={{ fontSize:11, color:cat.color, letterSpacing:"0.1em", marginBottom:8, marginTop:4, fontWeight:700 }}>{cat.label}</div>
+              {cat.items.map((item,i)=>(
+                <div key={i} style={{ ...S.card, borderLeft:`3px solid ${cat.color}`, marginBottom:8 }}>
+                  <div style={{ fontSize:10, color:cat.color, marginBottom:3, letterSpacing:"0.08em" }}>{item.method}</div>
+                  <div style={{ fontSize:14, fontWeight:700, color:"#D4D8E8", marginBottom:2 }}>{item.name}</div>
+                  <div style={{ fontSize:11, color:"#6B7280", marginBottom:6 }}>副菜: {item.side}</div>
+                  <div style={{ fontSize:12, color:"#6B7280", lineHeight:1.6, borderTop:"1px solid #2E3448", paddingTop:6, marginBottom:6 }}>{item.tip}</div>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      {item.tags.map(t=>(<span key={t} style={{ fontSize:10, background:`${TAG_COLORS[t]}22`, color:TAG_COLORS[t], border:`1px solid ${TAG_COLORS[t]}44`, borderRadius:3, padding:"1px 6px" }}>{t}</span>))}
+                    </div>
+                    <div style={{ fontSize:11, color:"#34D399", fontWeight:700 }}>P {item.protein}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+
+          {/* 家族の調整 */}
+          <div style={{ ...S.card, borderLeft:"3px solid #4ECDC4", marginTop:8 }}>
+            <div style={{ fontSize:11, color:"#4ECDC4", marginBottom:8, fontWeight:700 }}>家族6人での回し方</div>
+            <div style={{ fontSize:12, color:"#6B7280", lineHeight:1.7 }}>
+              <div style={{ marginBottom:8 }}><span style={{ color:"#D4D8E8", fontWeight:700 }}>一皿を全員に、調整は盛り付けで。</span>自分だけ白米を減らして主菜を多く取る。</div>
+              <div style={{ marginBottom:8 }}><span style={{ color:"#D4D8E8", fontWeight:700 }}>高齢のご家族への3つの配慮。</span>骨を外す。柔らかく火を通す（蒸す・煮る・あんかけ）。油を控える。</div>
+              <div><span style={{ color:"#D4D8E8", fontWeight:700 }}>タンパク質は逆算で。</span>朝41g固定。昼で50〜60g取れば、夜は主菜30〜45gで目標に届く。納豆・キムチ・冷奴で微調整。</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── WeeklyTrainingPlan ──────────────────────────────────────
+const TRAINING_WEEK = [
+  { dow:"月", label:"上半身 A", sub:"押す寄り", type:"upper",
+    exs:[
+      { name:"腕立て 通常（PUバー）", note:"胸の主役 限界の1歩手前まで", sets:"4×12–15" },
+      { name:"デクライン腕立て", note:"足を椅子に 上部胸と前肩", sets:"3×10" },
+      { name:"懸垂", note:"背中と姿勢の核 90秒休憩", sets:"4×限界" },
+      { name:"ナロー腕立て", note:"三頭を狙う", sets:"3×10" },
+      { name:"胸・前肩ストレッチ", note:"壁に手をつき胸を開く 左右30秒", tag:"姿勢", sets:"2回" },
+    ]},
+  { dow:"火", label:"下半身 A", type:"lower",
+    exs:[
+      { name:"加重リュック スクワット", note:"テンポ3-1-1 重りは肩甲骨の間へ", tag:"加重", sets:"4×10–12" },
+      { name:"ブルガリアンスクワット", note:"片脚ずつ 前腿と尻に効く", sets:"3×10" },
+      { name:"ヒップリフト", note:"リュックを腰に 尻を締める", tag:"加重", sets:"3×15" },
+      { name:"カーフレイズ", note:"つま先立ちを上げ下げ ふくらはぎ", sets:"3×20" },
+    ]},
+  { dow:"水", label:"上半身 B", sub:"引く寄り", type:"upper",
+    exs:[
+      { name:"懸垂 または斜め懸垂", note:"背中を再度 姿勢の主役", sets:"4×限界" },
+      { name:"加重リュック 片手ロウ", note:"机に手をつき引く 背中の厚み", tag:"加重", sets:"4×10" },
+      { name:"ワイド腕立て", note:"胸の外側", sets:"3×12" },
+      { name:"リアレイズ（ペットボトル）", note:"お辞儀姿勢で後ろへ 肩後部と猫背改善", tag:"姿勢", sets:"3×15" },
+      { name:"サイドレイズ（ペットボトル）", note:"肩の横 丸みを作る", sets:"3×15" },
+    ]},
+  { dow:"木", label:"下半身 B・体幹", type:"lower",
+    exs:[
+      { name:"加重リュック スクワット", note:"火曜より1回でも多くを狙う", tag:"加重", sets:"4×10–12" },
+      { name:"ランジ 前後", note:"歩くように 左右交互", sets:"3×10" },
+      { name:"アブローラー 膝コロ", note:"体幹の最強種目", sets:"4×12" },
+      { name:"ぶら下がりニーレイズ", note:"下腹と握力", sets:"3×12" },
+      { name:"プランク", note:"体幹で姿勢を支える土台", tag:"姿勢", sets:"3×60秒" },
+    ]},
+  { dow:"金", label:"休養（バイト）", type:"rest",
+    note:"黒服バイトの立ち仕事が軽い有酸素。トレは休み。深夜の間食はタンパク質で対処。" },
+  { dow:"土", label:"水泳", type:"cardio",
+    exs:[
+      { name:"自由遊泳", note:"クロール・平泳ぎ 16:00–16:30", sets:"20分" },
+      { name:"全力インターバル", note:"25m全力→休む を繰り返す", sets:"2–3本" },
+    ]},
+  { dow:"日", label:"休養・回復", type:"rest",
+    note:"サウナで回復。翌朝の体重は水分が抜けて軽く出る。ノイズなので気にしない。週平均で見る。" },
+];
+const TRAIN_TYPE_COLORS = { upper:"#5FB88A", lower:"#D9A441", cardio:"#5AA9D6", rest:"#556059" };
+const TRAIN_TAG_COLORS  = { "加重":"#D9A441", "姿勢":"#B98BD1" };
+
+function WeeklyTrainingPlan() {
+  return (
+    <div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
+        {[["頻度","各部位 週2回"],["量","週10セット前後"],["追い込み","限界近くまで"],["基準","WHO/CDC充足"]].map(([k,v])=>(
+          <div key={k} style={{ ...S.card, padding:"10px 12px", marginBottom:0 }}>
+            <div style={{ fontSize:9, color:"#5FB88A", letterSpacing:"0.1em", marginBottom:3 }}>{k}</div>
+            <div style={{ fontSize:12, fontWeight:700, color:"#D4D8E8" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:12, fontSize:11, color:"#6B7280" }}>
+        {[["#5FB88A","上半身"],["#D9A441","下半身"],["#5AA9D6","有酸素"],["#B98BD1","姿勢"],["#556059","休養"]].map(([c,l])=>(
+          <div key={l} style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:c }}/>{l}
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        {TRAINING_WEEK.map((day,i)=>(
+          <div key={i} style={{ ...S.card, borderTop:`3px solid ${TRAIN_TYPE_COLORS[day.type]}`, padding:"12px 12px", marginBottom:0, opacity:day.type==="rest"?0.75:1 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:8, paddingBottom:7, borderBottom:"1px solid #2E3448" }}>
+              <div style={{ display:"flex", alignItems:"baseline", gap:6 }}>
+                <span style={{ fontSize:20, fontWeight:800 }}>{day.dow}</span>
+                <span style={{ fontSize:11, fontWeight:700, color:TRAIN_TYPE_COLORS[day.type], lineHeight:1.2 }}>{day.label}</span>
+              </div>
+              {day.sub && <span style={{ fontSize:9, color:"#6B7280" }}>{day.sub}</span>}
+            </div>
+            {day.note ? (
+              <div style={{ fontSize:11, color:"#6B7280", lineHeight:1.6 }}>{day.note}</div>
+            ) : day.exs?.map((ex,j)=>(
+              <div key={j} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:6, padding:"5px 0", borderBottom:j<day.exs.length-1?"1px dashed #2E3448":"none" }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:11, color:"#D4D8E8", display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
+                    {ex.name}
+                    {ex.tag && <span style={{ fontSize:8, fontWeight:700, color:TRAIN_TAG_COLORS[ex.tag], border:`1px solid ${TRAIN_TAG_COLORS[ex.tag]}`, borderRadius:3, padding:"0 3px" }}>{ex.tag}</span>}
+                  </div>
+                  {ex.note && <div style={{ fontSize:9, color:"#6B7280", marginTop:1 }}>{ex.note}</div>}
+                </div>
+                <div style={{ fontSize:11, fontWeight:800, color:"#D4D8E8", whiteSpace:"nowrap", flexShrink:0 }}>{ex.sets}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div style={{ ...S.card, border:"1px solid #5FB88A", borderTop:"3px solid #5FB88A", background:"rgba(95,184,138,0.06)", marginBottom:0 }}>
+          <div style={{ fontSize:12, fontWeight:800, color:"#5FB88A", marginBottom:8, paddingBottom:7, borderBottom:"1px solid rgba(95,184,138,0.2)" }}>要点</div>
+          {[["週2回頻度が核","上下を2回転 同じ努力で伸びが増える"],["重さより追い込み","軽くても限界近くで刺激は十分"],["姿勢は後ろ側で作る","懸垂・ロウ・リアレイズ＋胸を伸ばす"]].map(([t,n],i)=>(
+            <div key={i} style={{ padding:"5px 0", borderBottom:i<2?"1px dashed #2E3448":"none" }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"#D4D8E8" }}>{t}</div>
+              <div style={{ fontSize:9, color:"#6B7280", marginTop:1 }}>{n}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ ...S.card, borderLeft:"3px solid #5FB88A", marginTop:10 }}>
+        <div style={{ fontSize:11, color:"#5FB88A", marginBottom:6, fontWeight:700 }}>発展の作り方 ― 重さを足さずに伸ばす</div>
+        <div style={{ fontSize:12, color:"#6B7280", lineHeight:1.7 }}>
+          回数を1回ずつ増やす → 可動域を深くする → 動作をゆっくりにする（降ろす局面3秒）→ 種目を難しくする（膝コロ→立ちコロ）。加重リュックは<span style={{ color:"#D4D8E8", fontWeight:700 }}>水の量で微調整</span>できる。
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PositioningMap ───────────────────────────────────────────
+const MAP_DATA = [
+  {x:18,y:45,s:"花王",c:"ホンダ",a:"ワークマン",f:"定食・家庭料理",dr:"緑茶・麦茶",mu:"王道J-POP",w:"G-SHOCK",tr:"ビジネスホテル",ho:"建売住宅",to:"無印の文具",n:"技術で日常を支える実用派。キュレルの精密設計。",kuroko:"キュレル"},
+  {x:22,y:14,s:"ナチュリエ",c:"軽コンパクト",a:"しまむら",f:"コンビニ・立ち食い",dr:"水道水",mu:"配信のヒット曲",w:"チープカシオ",tr:"日帰り・カプセル",ho:"賃貸アパート",to:"100均",n:"惜しみなく使える街乗りの足。ハトムギ化粧水。",kuroko:"ハトムギ"},
+  {x:24,y:26,s:"ロート製薬",c:"スズキ",a:"GU",f:"牛丼チェーン",dr:"ハイボール(角)",mu:"人気アニソン",w:"セイコー5",tr:"ビジホ・素泊まり",ho:"コンパクト賃貸",to:"実用ボールペン",n:"コスパの鬼。低コストで美白を叩き出す走り。",kuroko:"メラノCC"},
+  {x:40,y:40,s:"ファンケル/オルビス",c:"スバル",a:"無印良品",f:"自然派・玄米",dr:"無添加ジュース",mu:"ネオアコ",w:"シンプル無地文字盤",tr:"素朴な民宿",ho:"自然素材の家",to:"無印の道具",n:"無添加という硬派な信念で一点突破。"},
+  {x:36,y:64,s:"資生堂",c:"トヨタ/レクサス",a:"ユニクロ",f:"デパ地下・王道和食",dr:"定番の生ビール",mu:"国民的名曲",w:"グランドセイコー",tr:"老舗シティホテル",ho:"大手の注文住宅",to:"定番の名品文具",n:"全方位の王者。大衆から格までフルライン。",kuroko:"アネッサ"},
+  {x:33,y:67,s:"キール/クリニーク",c:"アウディ/ボルボ",a:"BEAMS",f:"ビストロ・カフェ",dr:"スペシャルティコーヒー",mu:"洗練ジャズ",w:"ノモス(独)",tr:"デザインホテル",ho:"北欧系の家",to:"ラミー・北欧文具",n:"理知的で清潔感ある皮膚科学ベースの実力派。"},
+  {x:46,y:61,s:"アルビオン",c:"スバル(硬派)",a:"ユナイテッドアローズ",f:"実力派の割烹",dr:"純米大吟醸",mu:"通好みの名盤",w:"独立時計師の一本",tr:"通の隠れ宿",ho:"建築家の平屋",to:"職人の万年筆",n:"乳液先行の独自理論。玄人が唸る技術派。"},
+  {x:64,y:53,s:"コーセー",c:"マツダ",a:"ユナイテッドアローズ",f:"世界観ある創作料理",dr:"クラフトカクテル",mu:"コンセプトアルバム",w:"デザイン時計",tr:"世界観あるオーベルジュ",ho:"デザイナーズ",to:"作家ものの道具",n:"規模より美意識。編集された世界観で殴る。"},
+  {x:57,y:80,s:"エスティ/ランコム",c:"ベンツ/BMW",a:"インポート勢",f:"高級ホテルダイニング",dr:"シャンパーニュ",mu:"世界的名門オケ",w:"ロレックス/オメガ",tr:"外資ラグジュアリー",ho:"高級輸入住宅",to:"モンブラン",n:"王道の外資プレステージ。世界基準の格。"},
+  {x:76,y:96,s:"ラ・メール",c:"ロールス・ロイス",a:"オートクチュール",f:"世界最高峰の三つ星",dr:"ヴィンテージ・ロマネコンティ",mu:"殿堂の巨匠",w:"パテック・フィリップ",tr:"世界最高峰の宿",ho:"歴史的大邸宅",to:"最高峰の逸品",n:"価格が思想。持つこと自体がステータス。"},
+  {x:56,y:30,s:"韓国コスメ(CNP等)",c:"現代/起亜",a:"K-ファッション",f:"映える韓国料理",dr:"トレンドドリンク",mu:"K-POP",w:"デザインスマートウォッチ",tr:"映えるデザインホテル",ho:"今どきの賃貸",to:"映える文具",n:"トレンドと即効性。手頃なのに攻めた審美。"},
+  {x:30,y:28,s:"無印良品",c:"実直コンパクト",a:"無印良品",f:"素材を生かす定食",dr:"炭酸水",mu:"環境音楽",w:"無印の時計",tr:"素朴な民宿",ho:"シンプルな家",to:"無印の道具",n:"引き算の思想。コスパと安心の一段上。"},
+  {x:49,y:90,s:"クレ・ド・ポー",c:"レクサス最上級",a:"銀座の名店",f:"名店の懐石",dr:"最上級シャンパン",mu:"殿堂のクラシック",w:"最高峰の国産機械式",tr:"最上級スイート",ho:"最高級邸宅",to:"最高峰の万年筆",n:"資生堂の頂点。知性と光の最上級ライン。"},
+];
+
+function PositioningMapPanel() {
+  const svgRef = useRef(null);
+  const cLayerRef = useRef(null);
+  const [card, setCard] = useState(null);
+  const [showCountries, setShowCountries] = useState(false);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    svg.innerHTML = '';
+    const NS = "http://www.w3.org/2000/svg";
+    const L=42, R=356, T=30, B=356;
+    const px = v => L + (v/100)*(R-L);
+    const py = v => B - (v/100)*(B-T);
+    function el(tag, attrs) {
+      const e = document.createElementNS(NS, tag);
+      for (const k in attrs) e.setAttribute(k, attrs[k]);
+      return e;
+    }
+    // grid
+    for (let i=0; i<=4; i++) {
+      const gx=L+(i/4)*(R-L); svg.appendChild(el('line',{x1:gx,y1:T,x2:gx,y2:B,stroke:"#2E3448","stroke-width":1}));
+      const gy=T+(i/4)*(B-T); svg.appendChild(el('line',{x1:L,y1:gy,x2:R,y2:gy,stroke:"#2E3448","stroke-width":1}));
+    }
+    // axis lines
+    svg.appendChild(el('line',{x1:px(50),y1:T,x2:px(50),y2:B,stroke:"#3A4060","stroke-width":1,"stroke-dasharray":"2 4"}));
+    svg.appendChild(el('line',{x1:L,y1:py(50),x2:R,y2:py(50),stroke:"#3A4060","stroke-width":1,"stroke-dasharray":"2 4"}));
+    // quad labels
+    [["実直コスパ",25,25],["手頃なセンス",75,25],["質実の高級",25,75],["格と美意識",75,75]].forEach(([t,qx,qy])=>{
+      const txt=el('text',{x:px(qx),y:py(qy),'text-anchor':'middle','font-size':10,fill:"#D4D8E8",opacity:0.12,'font-family':'sans-serif'});
+      txt.textContent=t; svg.appendChild(txt);
+    });
+    // country layer (hidden by default)
+    const cLayer = el('g',{id:'cLayer',style:'display:none'});
+    const countries=[{x:28,y:42,label:"日本",rx:70,ry:60},{x:44,y:75,label:"ドイツ",rx:52,ry:44},{x:65,y:79,label:"フランス",rx:48,ry:44},{x:47,y:39,label:"アメリカ",rx:66,ry:52}];
+    countries.forEach(cn=>{
+      const cx=px(cn.x), cy=py(cn.y);
+      const rx=cn.rx*((R-L)/100)*0.62, ry=cn.ry*((B-T)/100)*0.62;
+      cLayer.appendChild(el('ellipse',{cx,cy,rx,ry,fill:'rgba(100,150,150,0.08)',stroke:'rgba(100,150,150,0.25)','stroke-width':1,'stroke-dasharray':'3 3'}));
+      const t=el('text',{x:cx,y:cy+4,'text-anchor':'middle','font-size':13,fill:'#D4D8E8',opacity:0.18,'font-family':'serif'});
+      t.textContent=cn.label; cLayer.appendChild(t);
+    });
+    svg.appendChild(cLayer);
+    cLayerRef.current = cLayer;
+    // journey
+    const cur={x:px(25),y:py(30)}, ideal={x:px(58),y:py(68)};
+    const mx=(cur.x+ideal.x)/2+20, my=(cur.y+ideal.y)/2+8;
+    svg.appendChild(el('path',{d:`M ${cur.x} ${cur.y} Q ${mx} ${my} ${ideal.x} ${ideal.y}`,fill:'none',stroke:'#C4973A','stroke-width':1.5,'stroke-dasharray':'5 5',opacity:0.8}));
+    // arrow
+    const ang=Math.atan2(ideal.y-my,ideal.x-mx);
+    svg.appendChild(el('path',{d:`M ${ideal.x} ${ideal.y} L ${ideal.x+9*Math.cos(ang+2.7)} ${ideal.y+9*Math.sin(ang+2.7)} M ${ideal.x} ${ideal.y} L ${ideal.x+9*Math.cos(ang-2.7)} ${ideal.y+9*Math.sin(ang-2.7)}`,stroke:'#C4973A','stroke-width':1.5,fill:'none'}));
+    // current marker (diamond)
+    svg.appendChild(el('path',{d:`M ${cur.x} ${cur.y-8} L ${cur.x+8} ${cur.y} L ${cur.x} ${cur.y+8} L ${cur.x-8} ${cur.y} Z`,fill:'#1A1F2E',stroke:'#C4973A','stroke-width':2,style:'cursor:pointer'}));
+    const cl1=el('text',{x:cur.x,y:cur.y+20,'text-anchor':'middle','font-size':10,fill:'#C4973A','font-weight':'600','font-family':'serif'});
+    cl1.textContent='現在地'; svg.appendChild(cl1);
+    // ideal marker (star)
+    function starPath(cx,cy,R,r){let p='';for(let i=0;i<10;i++){const rad=i%2===0?R:r,a=-Math.PI/2+i*Math.PI/5;p+=(i===0?'M':'L')+(cx+rad*Math.cos(a))+' '+(cy+rad*Math.sin(a))+' ';}return p+'Z';}
+    const star=el('path',{d:starPath(ideal.x,ideal.y,9,4),fill:'#C4973A',stroke:'#1A1F2E','stroke-width':1,style:'cursor:pointer'});
+    svg.appendChild(star);
+    const cl2=el('text',{x:ideal.x,y:ideal.y-14,'text-anchor':'middle','font-size':10,fill:'#C4973A','font-weight':'600','font-family':'serif'});
+    cl2.textContent='理想'; svg.appendChild(cl2);
+    // axis labels
+    [['機能',12,T-10,'middle'],['審美',88,T-10,'middle'],['庶民',L-6,B+14,'end'],['最高級',L-6,T+4,'end']].forEach(([t,ax,ay,anchor])=>{
+      const txt=el('text',{x:typeof ax==='number'&&ax<20?ax:px(ax)||ax,y:ay,'text-anchor':anchor||'middle','font-size':9,fill:'#6B7280','font-family':'sans-serif','letter-spacing':'0.1em'});
+      txt.textContent=t; svg.appendChild(txt);
+    });
+    // dots
+    function lerp(a,b,t){return Math.round(a+(b-a)*t);}
+    function colorFor(x){const t=x/100;return `rgb(${lerp(0x6e,0xc4,t)},${lerp(0xa3,0x7a,t)},${lerp(0xa6,0x6d,t)})`;}
+    MAP_DATA.forEach((d)=>{
+      const cx=px(d.x), cy=py(d.y);
+      const dot=el('circle',{cx,cy,r:6,fill:colorFor(d.x),'fill-opacity':0.9,style:'cursor:pointer'+(d.kuroko?';stroke:#C4973A;stroke-width:2':'')});
+      dot.addEventListener('click',()=>setCard(d));
+      svg.appendChild(dot);
+      const right=d.x<72;
+      const lbl=el('text',{x:right?cx+9:cx-9,y:cy+4,'text-anchor':right?'start':'end','font-size':9,fill:'#D4D8E8','font-family':'serif',opacity:0.8});
+      lbl.textContent=d.s; svg.appendChild(lbl);
+    });
+    return () => { svg.innerHTML = ''; };
+  }, [setCard]);
+
+  useEffect(() => {
+    if (cLayerRef.current) {
+      cLayerRef.current.style.display = showCountries ? 'block' : 'none';
+    }
+  }, [showCountries]);
+
+  const CELLS = card ? [["スキンケア",card.s],["車",card.c],["アパレル",card.a],["食事",card.f],["飲み物",card.dr],["音楽",card.mu],["時計",card.w],["旅行",card.tr],["住まい",card.ho],["道具",card.to]] : [];
+
+  return (
+    <div>
+      <div style={{ fontSize:11, color:"#6B7280", marginBottom:8 }}>縦＝価格　横＝機能 ⇄ 審美　　点をタップで詳細</div>
+      <svg ref={svgRef} viewBox="0 0 398 386" style={{ width:"100%", display:"block", background:"#1A1F2E", borderRadius:6, marginBottom:10, border:"1px solid #2E3448" }}/>
+      <div style={{ display:"flex", gap:10, marginBottom:10, fontSize:11 }}>
+        <button onClick={()=>setShowCountries(!showCountries)} style={{ ...S.btn(showCountries,"#C4973A"), flex:1, padding:"7px" }}>
+          {showCountries?"国を隠す":"国を表示"}
+        </button>
+        <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:10, color:"#6B7280" }}>
+          <div style={{ width:8,height:8,borderRadius:"50%",background:"#6ea3a6" }}/>機能
+          <div style={{ width:8,height:8,borderRadius:"50%",background:"#c47a6d" }}/>審美
+          <div style={{ width:8,height:8,borderRadius:"50%",border:"2px solid #C4973A",background:"transparent" }}/>クロコ
+        </div>
+      </div>
+      {card ? (
+        <div style={S.card}>
+          <div style={{ fontSize:10, color:"#C4973A", marginBottom:4 }}>{card.kuroko?`クロコの棚 — ${card.kuroko}`:"メーカー"}</div>
+          <div style={{ fontSize:15, fontWeight:700, color:"#D4D8E8", marginBottom:4 }}>{card.s}</div>
+          <div style={{ fontSize:12, color:"#6B7280", lineHeight:1.6, marginBottom:10 }}>{card.n}</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+            {CELLS.map(([k,v])=>(
+              <div key={k} style={{ background:"#1A1F2E", borderRadius:3, padding:"6px 8px" }}>
+                <div style={{ fontSize:8, color:"#6B7280", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>{k}</div>
+                <div style={{ fontSize:11, color:"#D4D8E8" }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ ...S.card, textAlign:"center", color:"#6B7280", fontSize:12 }}>点をタップすると10ジャンルで詳細が表示されます</div>
+      )}
+    </div>
+  );
+}
+
+
 // ─── ShoppingList ────────────────────────────────────────────
 const DEFAULT_SHOPPING = [
   { id:"s1", label:"鶏むね肉",     category:"肉・魚", fixed:true },
@@ -662,84 +1068,8 @@ function ShoppingList({ shopItems, setShopItems }) {
 }
 
 // ─── WorkoutPanel ────────────────────────────────────────────
-function WorkoutPanel({ onRecord }) {
-  const [muscle, setMuscle] = useState("chest");
-  const [level, setLevel] = useState(1);
-  const [checked, setChecked] = useState({});
-  const [recorded, setRecorded] = useState(false);
-  const g = WORKOUT[muscle];
-  const menu = g.levels[level];
-  const totalSets = menu.sets.reduce((a,s)=>a+s.sets,0);
-  const doneSets = Object.values(checked).filter(Boolean).length;
-  const toggle = (key) => setChecked(p => ({...p,[key]:!p[key]}));
-  const recordWorkout = () => {
-    onRecord({ muscle, muscleLabel:g.label, level:level+1, levelLabel:menu.label, sets:doneSets, totalSets });
-    setRecorded(true);
-  };
-  return (
-    <div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
-        {Object.entries(WORKOUT).map(([k,g]) => (
-          <button key={k} onClick={() => { setMuscle(k); setChecked({}); }} style={{ ...S.btn(muscle===k,g.color), padding:"10px 8px", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            <span>{g.icon}</span><span>{g.label}</span>
-          </button>
-        ))}
-      </div>
-      <div style={{ display:"flex", gap:6, marginBottom:14 }}>
-        {WORKOUT[muscle].levels.map((lv,i) => (
-          <button key={i} onClick={() => { setLevel(i); setChecked({}); }} style={{ ...S.btn(level===i,lv.color), flex:1, fontSize:11 }}>{lv.label}</button>
-        ))}
-      </div>
-      <div style={{ ...S.card, borderLeft:`3px solid ${menu.color}` }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:2 }}>
-          <div>
-            <div style={{ fontSize:15, fontWeight:700, color:menu.color }}>{g.icon} {g.label} — {menu.label}</div>
-            <div style={{ fontSize:12, color:"#555", marginTop:2 }}>{menu.sub}</div>
-          </div>
-          <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:18, fontWeight:700, color:doneSets===totalSets&&totalSets>0?"#34D399":menu.color }}>{doneSets}/{totalSets}</div>
-            <div style={{ fontSize:10, color:"#444" }}>セット</div>
-          </div>
-        </div>
-        <div style={{ background:"#1A1A1A", borderRadius:20, height:4, marginTop:10, overflow:"hidden" }}>
-          <div style={{ width:`${totalSets ? doneSets/totalSets*100 : 0}%`, height:"100%", background:menu.color, borderRadius:20, transition:"width .2s" }} />
-        </div>
-      </div>
-      <div style={S.card}>
-        {menu.sets.map((ex,ei) => (
-          <div key={ei} style={{ marginBottom:ei<menu.sets.length-1?4:0 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:"#E8E8E0", padding:"6px 0 4px", borderBottom:"1px solid #1A1A1A" }}>
-              {ex.name}<span style={{ fontSize:11, color:"#555", fontWeight:400, marginLeft:8 }}>{ex.note}</span>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(58px, 1fr))", gap:6, paddingTop:6, paddingBottom:4 }}>
-              {Array.from({length:ex.sets}).map((_,si) => {
-                const key=`${ei}-${si}`; const done=checked[key];
-                return (
-                  <div key={si} onClick={() => toggle(key)} style={{ background:done?`${menu.color}33`:"#1A1A1A", border:`1px solid ${done?menu.color:"#2A2A2A"}`, borderRadius:4, padding:"6px 4px", cursor:"pointer", fontSize:12, color:done?menu.color:"#666", textAlign:"center", transition:"all .15s" }}>
-                    {done?"✓":`${si+1}set`}<br/><span style={{ fontSize:10 }}>{ex.reps}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-      {doneSets>0 && <button onClick={() => setChecked({})} style={{ ...S.btn(false), width:"100%", padding:"8px", fontSize:12 }}>リセット</button>}
-      {doneSets===totalSets&&totalSets>0 && (
-        <div style={{ textAlign:"center", padding:"16px 0" }}>
-          <div style={{ fontSize:14, color:"#34D399", marginBottom:10 }}>🎉 完了！お疲れ様でした</div>
-          {!recorded ? (
-            <button onClick={recordWorkout} style={{ ...S.btn(true,"#34D399"), padding:"10px 20px" }}>今日の記録として保存</button>
-          ) : (
-            <div style={{ fontSize:12, color:"#4ECDC4" }}>✓ カレンダーに記録しました</div>
-          )}
-        </div>
-      )}
-      {doneSets>0 && doneSets<totalSets && !recorded && (
-        <button onClick={recordWorkout} style={{ ...S.btn(false), width:"100%", padding:"8px", fontSize:12, marginTop:6 }}>途中でも記録する（{doneSets}/{totalSets}セット）</button>
-      )}
-    </div>
-  );
+function WorkoutPanel() {
+  return <WeeklyTrainingPlan />;
 }
 
 // ─── WeeklyReport ────────────────────────────────────────────
@@ -1444,19 +1774,17 @@ export default function App() {
 
       {/* メインタブ */}
       <div style={{ display:"flex", gap:4, marginBottom:8, overflowX:"auto" }}>
-        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["shopping","🛒"],["status","📊"],["courage","⚔️"]].map(([k,icon]) => (
-          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:18, padding:"8px 10px", flexShrink:0 }}>{icon}</button>
+        {[["calendar","🗓"],["report","📈"],["assets","💰"],["workout","💪"],["meal","🍽️"],["map","🗺️"],["status","📊"],["courage","⚔️"]].map(([k,icon]) => (
+          <button key={k} onClick={()=>setMainTab(k)} style={{ ...S.btn(mainTab===k), fontSize:15, padding:"8px 7px", flexShrink:0 }}>{icon}</button>
         ))}
       </div>
       <div style={{ fontSize:12, color:"#6B7280", marginBottom:12 }}>
-        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレメニュー","shopping":"🛒 買い物リスト","status":"📊 ステータス","courage":"⚔️ 勇気ログ"}[mainTab]}
+        {{"calendar":"🗓 カレンダー","report":"📈 週次レポート","assets":"💰 資産","workout":"💪 筋トレ","meal":"🍽️ 食事","map":"🗺️ 価値観マップ","status":"📊 ステータス","courage":"⚔️ 勇気ログ"}[mainTab]}
       </div>
 
-      {mainTab==="shopping" && <ShoppingList shopItems={shopItems} setShopItems={setShopItems} />}
-      {mainTab==="workout"  && <WorkoutPanel onRecord={(rec) => {
-        const dd = dayData[todayKey]||{};
-        updateDay(todayKey, {...dd, workout:rec, actions:{...(dd.actions||{}), gym:true}});
-      }} />}
+      {mainTab==="meal"     && <MealPanel />}
+      {mainTab==="map"      && <PositioningMapPanel />}
+      {mainTab==="workout"  && <WorkoutPanel />}
       {mainTab==="report"   && <WeeklyReport dayData={dayData} />}
       {mainTab==="assets"   && <AssetPanel assets={assets} setAssets={setAssets} assetHistory={assetHistory} setAssetHistory={setAssetHistory} dayData={dayData} />}
       {mainTab==="status"   && <StatusPanel />}
